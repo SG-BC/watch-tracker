@@ -3,6 +3,7 @@ manual edits (remove plays / ratings) and the planning list for the watchlist wi
 
 WeTrakr resolves ids server-side and accepts title + year, so no search is needed. Auth: OAuth device flow
 (PIN code), the app key in the `wetrakr-api-key` header (see auth.ENDPOINTS)."""
+import json
 import time
 
 from .. import cfg, log, net, status, syncmap, ui
@@ -10,6 +11,9 @@ from .base import Provider, ref_key
 
 PAGE = 100
 MAX_PAGES = 500
+COMPACT_PAGE = 5000                 # compact rows are ~200 bytes; a whole library is a handful of calls
+MAX_COMPACT_PAGES = 40
+DATE_KEYS = ('watched_at', 'tracked_at', 'date', 'created_at')
 
 
 def _stamp(when):
@@ -262,6 +266,48 @@ class WeTrakr(Provider):
             if len(rows) < PAGE:
                 return
 
+    def _compact(self, endpoint, params=None):
+        """Yield the compact rows of a list (small rows, up to 5,000 a page, walked with the `after` cursor
+        WeTrakr hands back in X-Pagination-Next). Raises RuntimeError on a refused page."""
+        after, shown = None, 0
+        for _ in range(MAX_COMPACT_PAGES):
+            query = dict(params or {}, compact='true', limit=COMPACT_PAGE)
+            if after:
+                query['after'] = after
+            res = self._call('GET', endpoint, params=query)
+            if not res.ok:
+                raise RuntimeError('WeTrakr answered {} for {}'.format(res.status, endpoint))
+            rows = res.raw if isinstance(res.raw, list) else (res.body.get('data') or res.body.get('results') or [])
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                if shown < 2:                       # real shapes for the next debug log
+                    shown += 1
+                    log.debug('sample wetrakr {}: {}'.format(endpoint, json.dumps(row)[:300]))
+                yield row
+            after = res.headers.get('x-pagination-next')
+            if not after or not rows:
+                return
+
+    @staticmethod
+    def _date(row):
+        for key in DATE_KEYS:
+            when = syncmap.normalize_ts(row.get(key))
+            if when:
+                return when
+        return None
+
+    @staticmethod
+    def _score(value):
+        """A rating as the number 1-10, whether the row holds 8, "8", 8.5 or {"value": 8}; None when absent."""
+        if isinstance(value, dict):
+            value = next((value[k] for k in ('value', 'rating', 'score') if value.get(k) is not None), None)
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return None
+        return syncmap.round_half_up(number) if number > 0 else None
+
     @staticmethod
     def _neutral(obj, kind):
         ids = {k: v for k, v in (obj.get('ids') or {}).items() if k in ('imdb', 'tmdb', 'tvdb', 'anilist') and v}
@@ -273,23 +319,22 @@ class WeTrakr(Provider):
         """Every play, newest first -> a Simkl-shaped history payload (the latest play of each item)."""
         params = {'from_date': since} if since else {}
         movies, shows, seen = [], {}, set()
-        for row in self._pages('/sync/tracking/watched/history/movies', params):
-            item = self._neutral(row.get('movie') or {}, 'movie')
-            key = str(sorted((item.get('ids') or {}).items())) or str(item)
+        for row in self._compact('/sync/tracking/watched/history/movies', params):
+            item = self._neutral(row, 'movie')
+            key = str(sorted((item.get('ids') or {}).items()))
             if not item or key in seen:
                 continue
             seen.add(key)
-            when = syncmap.normalize_ts(row.get('watched_at'))
+            when = self._date(row)
             movies.append(dict(item, **({'watched_at': when} if when else {})))
-        for row in self._pages('/sync/tracking/watched/history/episodes', params):
-            ep = row.get('episode') or {}
-            item = self._neutral(ep.get('show') or {}, 'show')
-            if not item or ep.get('season_number') is None or ep.get('number') is None:
+        for row in self._compact('/sync/tracking/watched/history/episodes', params):
+            item = self._neutral({'ids': row.get('show_ids')}, 'show')
+            season_no, number = row.get('season_number'), row.get('number')
+            if not item or season_no is None or number is None:
                 continue
-            when = syncmap.normalize_ts(row.get('watched_at'))
             group = shows.setdefault(syncmap.show_key(item), {'item': item, 'seasons': {}})
-            season = group['seasons'].setdefault(ep['season_number'], {})
-            season.setdefault(ep['number'], when)         # newest first: the first row is the latest play
+            season = group['seasons'].setdefault(season_no, {})
+            season.setdefault(number, self._date(row))    # newest first: the first row is the latest play
         out = {}
         if movies:
             out['movies'] = movies
@@ -308,16 +353,13 @@ class WeTrakr(Provider):
         out = {}
         for key, kind in (('movies', 'movie'), ('shows', 'show')):
             rows = []
-            for row in self._pages('/sync/ratings/' + key, params):
-                mine = (row.get('interactions') or {}).get('user') or {}
-                if not mine.get('rating'):
-                    continue
+            for row in self._compact('/sync/ratings/' + key, params):
+                score = self._score(row.get('rating'))
                 item = self._neutral(row, kind)
-                if not item:
+                if not score or not item:
                     continue
-                stamp = syncmap.normalize_ts(mine.get('rated_at'))
-                rows.append(dict(item, rating=syncmap.round_half_up(mine['rating']),
-                                 **({'rated_at': stamp} if stamp else {})))
+                stamp = syncmap.normalize_ts(row.get('rated_at'))
+                rows.append(dict(item, rating=score, **({'rated_at': stamp} if stamp else {})))
             if rows:
                 out[key] = rows
         return out

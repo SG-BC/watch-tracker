@@ -15,6 +15,7 @@ class Result:
         self.retry_after = retry_after
         self.daily_limit = daily_limit
         self.note = ''
+        self.headers = {}                                 # lower-case names; only filled by request()
 
     @property
     def ok(self):
@@ -43,6 +44,7 @@ def request(method, url, params=None, json_data=None, data=None, headers=None, t
     except ValueError:
         body = {}
     res = Result(status=r.status_code, body=body)
+    res.headers = {str(k).lower(): v for k, v in (r.headers or {}).items()}
     if r.status_code in (401, 403):
         res.auth_error = True
     elif r.status_code == 429:

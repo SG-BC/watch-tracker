@@ -1,3 +1,6 @@
+v1.6.1
+- Fix: syncing FROM WeTrakr was very slow (about 100 calls) and stopped with an error on the ratings ("float() argument must be ... not 'dict'"). It now uses WeTrakr's compact lists (up to 5,000 rows a call, walked with the cursor WeTrakr returns): a whole library is a handful of calls. Rows carry ids only, so a WeTrakr-to-AniList match relies on AniList/MAL ids when WeTrakr has them. The first rows of each list are written to the debug log to confirm the field names.
+
 v1.6.0
 - New service: AniList (anime). Log in by pasting the code AniList shows (it has no PIN-code flow); tokens last a year. A watch sets your progress (first season only, matched by AniList/MAL id or an exact title and year), ratings use your AniList scoring system automatically. Off until you log in.
 - Syncing: WeTrakr and AniList are now in the From / To lists. Kodi, Simkl and MDBList can write to both; WeTrakr can be read into Kodi, Simkl, MDBList and AniList; AniList into Kodi, Simkl and WeTrakr. Add-only. AniList is paced (about one item every 2 seconds).
