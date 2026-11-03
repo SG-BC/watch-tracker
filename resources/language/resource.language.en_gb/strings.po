@@ -1,0 +1,212 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en_GB\n"
+
+msgctxt "#30100"
+msgid "Status"
+msgstr ""
+
+msgctxt "#30102"
+msgid "Enable"
+msgstr ""
+
+msgctxt "#30104"
+msgid "Log in (PIN code)"
+msgstr ""
+
+msgctxt "#30105"
+msgid "Log out"
+msgstr ""
+
+msgctxt "#30110"
+msgid "Track movies"
+msgstr ""
+
+msgctxt "#30111"
+msgid "Track episodes"
+msgstr ""
+
+msgctxt "#30112"
+msgid "Simkl"
+msgstr ""
+
+msgctxt "#30113"
+msgid "WeTrakr"
+msgstr ""
+
+msgctxt "#30114"
+msgid "Rate movies"
+msgstr ""
+
+msgctxt "#30115"
+msgid "Rate episodes"
+msgstr ""
+
+msgctxt "#30116"
+msgid "Rate after watching at least (%)"
+msgstr ""
+
+msgctxt "#30117"
+msgid "Default rating (0 = none)"
+msgstr ""
+
+msgctxt "#30118"
+msgid "Preview (no changes)"
+msgstr ""
+
+msgctxt "#30119"
+msgid "Sync new changes"
+msgstr ""
+
+msgctxt "#30120"
+msgid "Re-sync everything"
+msgstr ""
+
+msgctxt "#30121"
+msgid "Verbose logging"
+msgstr ""
+
+msgctxt "#30122"
+msgid "View log"
+msgstr ""
+
+msgctxt "#30123"
+msgid "Clear log"
+msgstr ""
+
+msgctxt "#30124"
+msgid "Export log"
+msgstr ""
+
+msgctxt "#30125"
+msgid "Upload log"
+msgstr ""
+
+msgctxt "#30126"
+msgid "Clear search cache"
+msgstr ""
+
+msgctxt "#30127"
+msgid "Ignore media shorter than (minutes)"
+msgstr ""
+
+msgctxt "#30128"
+msgid "Ignore folders..."
+msgstr ""
+
+msgctxt "#30129"
+msgid "Ignore video add-ons..."
+msgstr ""
+
+msgctxt "#30133"
+msgid "MDBList always uses 80."
+msgstr ""
+
+msgctxt "#30134"
+msgid "Shows what would change. Nothing is sent or saved."
+msgstr ""
+
+msgctxt "#30135"
+msgid "Kept in memory only. Tokens and addresses are removed."
+msgstr ""
+
+msgctxt "#30143"
+msgid "0 = ignore nothing. Skips trailers and short clips."
+msgstr ""
+
+msgctxt "#30200"
+msgid "Accounts"
+msgstr ""
+
+msgctxt "#30201"
+msgid "Scrobbling"
+msgstr ""
+
+msgctxt "#30202"
+msgid "Rating"
+msgstr ""
+
+msgctxt "#30203"
+msgid "Syncing"
+msgstr ""
+
+msgctxt "#30204"
+msgid "Troubleshooting"
+msgstr ""
+
+msgctxt "#30205"
+msgid "General"
+msgstr ""
+
+msgctxt "#30210"
+msgid "MDBList"
+msgstr ""
+
+msgctxt "#30211"
+msgid "Simkl"
+msgstr ""
+
+msgctxt "#30212"
+msgid "WeTrakr"
+msgstr ""
+
+msgctxt "#30213"
+msgid "Track"
+msgstr ""
+
+msgctxt "#30214"
+msgid "Mark as watched at (%)"
+msgstr ""
+
+msgctxt "#30215"
+msgid "Rating"
+msgstr ""
+
+msgctxt "#30216"
+msgid "Sync between places"
+msgstr ""
+
+msgctxt "#30217"
+msgid "Debug log"
+msgstr ""
+
+msgctxt "#30218"
+msgid "Cache"
+msgstr ""
+
+msgctxt "#30219"
+msgid "Ignore"
+msgstr ""
+
+msgctxt "#30230"
+msgid "From"
+msgstr ""
+
+msgctxt "#30231"
+msgid "To"
+msgstr ""
+
+msgctxt "#30232"
+msgid "Kodi"
+msgstr ""
+
+msgctxt "#30233"
+msgid "MDBList"
+msgstr ""
+
+msgctxt "#30234"
+msgid "Simkl"
+msgstr ""
+
+msgctxt "#30235"
+msgid "The place to read from."
+msgstr ""
+
+msgctxt "#30236"
+msgid "The place to write to. Adds only; nothing is removed. Preview first."
+msgstr ""
+
+msgctxt "#30240"
+msgid "Log in with the PIN code shown on screen, then approve it on your phone or computer."
+msgstr ""

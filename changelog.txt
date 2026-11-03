@@ -1,0 +1,30 @@
+v1.5.0
+- New service: WeTrakr. PIN-code login, scrobbling (own "mark as watched at" value), episode and movie ratings, mark-watched fallback. Off until you log in. Not yet in the From/To sync lists.
+- Fix: the connection status row ("Connected as @username" / "Disconnected") was missing: Kodi rejected its control (format="string" is not valid on a button) and dropped the row. It is now a read-only text field.
+- Fix: a show found by title alone could be the wrong one (Naked Attraction (Spain) matched the 2016 original). The first episode of season 1 now has to air in the show's premiere year (+-1), and the folder name (e.g. "Naked Attraction Spain") is tried before Kodi's show title. Applies to MDBList and Simkl searches.
+- Settings: "Ignore folders..." and "Ignore video add-ons..." (same verb everywhere); "Sync new changes" and "Re-sync everything" (forgets what was synced and runs the whole sync again).
+- Ratings: the "Date ratings with the watch date" option is gone; ratings are always dated with the watch.
+
+v1.4.0
+- Login: MDBList and Simkl now use the OAuth device flow (a PIN code on screen, approve on your phone). No API keys to type. Tokens renew by themselves. The status shows "Connected as @username". Client ids live only in services_config.py. MDBList users: log in again once (the API key is no longer used).
+- Syncing: "From" and "To" lists (Kodi, MDBList, Simkl) replace the separate buttons. New pairs: Kodi -> MDBList, MDBList -> Kodi, Simkl -> MDBList. Preview, Sync now, Reset.
+- Ratings: "Date ratings with the watch date" (on by default). A rating given before watching takes the watch date once you watch it; live ratings are dated with the watch.
+- Fix: a stream that breaks mid-play (server timeout) no longer counts as finished: "ended" is trusted only when at most 2 minutes or 3 % were left, otherwise it is a normal stop at the real position (no watched mark, no rating prompt).
+- Fix: Simkl title-only search never read Simkl's answer (a list), so it could not match; it does now.
+- Setting renamed to "Ignore media shorter than (minutes)" (same value, now in the Ignore group).
+- Under the hood: every service is a Provider (login, username, title search, history and ratings writes); adding one no longer touches the player.
+
+v1.3.0
+- New "General" tab: track only videos running at least X minutes (default 15; skips trailers and short clips), ignored folders (pick from your Kodi video sources, browse, or type a name) and ignored video add-ons (pick from the installed ones).
+- Items with no ids and no year are now looked up by title only (MDBList search, or Simkl's search when MDBList is off). Ambiguous or unknown titles - family videos, clips - are ignored.
+- New sync buttons between the Kodi library and Simkl, one per direction, each with a preview. Add-only. Simkl -> Kodi asks Simkl what changed first and reads only the changes.
+- Fix: the MDBList -> Simkl sync now reads the watch date of plain item rows (`last_watched_at`) and files rated-but-never-watched items with their rating date instead of "today".
+- Settings: six tabs on the left, connection status per account, shorter labels, one-line description. API keys are hidden.
+- Removed: the extra service integration, the "match by title and year" option, Simkl title-only matching and the Simkl V1 login fallback.
+- Fix: a Simkl token reply without a refresh token or scope no longer breaks the login.
+
+v1.1.0
+- Sync keeps watch dates (play-by-play history), preview button, native rating list highlighting 6, crash-safeguard race fixes.
+
+v1.0.0
+- First release as Watch Tracker (MDBList and Simkl tracking, rating prompt, manual MDBList -> Simkl sync, redacted in-memory debug log with export/upload, small crash safeguard).

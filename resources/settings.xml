@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<settings version="1">
+    <section id="service.watch.tracker">
+        <category id="accounts" label="30200">
+            <group id="1" label="30210">
+                <setting id="mdblist_status" type="string" label="30100">
+                    <level>0</level>
+                    <default>Disconnected</default>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <dependencies><dependency type="enable"><condition on="property" name="InfoBool">System.AlwaysFalse</condition></dependency></dependencies>
+                    <control type="edit" format="string"><heading>30100</heading></control>
+                </setting>
+                <setting id="mdblist_enabled" type="boolean" label="30102">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="mdblist_login" type="action" label="30104" help="30240">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,login,mdblist)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+                <setting id="mdblist_logout" type="action" label="30105">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,logout,mdblist)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+            </group>
+            <group id="2" label="30211">
+                <setting id="simkl_status" type="string" label="30100">
+                    <level>0</level>
+                    <default>Disconnected</default>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <dependencies><dependency type="enable"><condition on="property" name="InfoBool">System.AlwaysFalse</condition></dependency></dependencies>
+                    <control type="edit" format="string"><heading>30100</heading></control>
+                </setting>
+                <setting id="simkl_enabled" type="boolean" label="30102">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="simkl_login" type="action" label="30104" help="30240">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,login,simkl)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+                <setting id="simkl_logout" type="action" label="30105">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,logout,simkl)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+            </group>
+            <group id="11" label="30212">
+                <setting id="wetrakr_status" type="string" label="30100">
+                    <level>0</level>
+                    <default>Disconnected</default>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <dependencies><dependency type="enable"><condition on="property" name="InfoBool">System.AlwaysFalse</condition></dependency></dependencies>
+                    <control type="edit" format="string"><heading>30100</heading></control>
+                </setting>
+                <setting id="wetrakr_enabled" type="boolean" label="30102">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="wetrakr_login" type="action" label="30104" help="30240">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,login,wetrakr)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+                <setting id="wetrakr_logout" type="action" label="30105">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,logout,wetrakr)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+            </group>
+        </category>
+        <category id="general" label="30205">
+            <group id="3" label="30219">
+                <setting id="min_minutes" type="integer" label="30127" help="30143">
+                    <level>0</level>
+                    <default>15</default>
+                    <constraints><minimum>0</minimum><step>1</step><maximum>120</maximum></constraints>
+                    <control type="slider" format="integer"><popup>false</popup></control>
+                </setting>
+                <setting id="ignore_folders" type="action" label="30128">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,ignore_folders)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+                <setting id="ignore_addons" type="action" label="30129">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,ignore_addons)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+            </group>
+        </category>
+        <category id="scrobbling" label="30201">
+            <group id="4" label="30213">
+                <setting id="scrobble_movie" type="boolean" label="30110">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="scrobble_episode" type="boolean" label="30111">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+            </group>
+            <group id="5" label="30214">
+                <setting id="simkl_min_progress" type="integer" label="30112" help="30133">
+                    <level>0</level>
+                    <default>80</default>
+                    <constraints><minimum>50</minimum><step>1</step><maximum>100</maximum></constraints>
+                    <control type="slider" format="integer"><popup>false</popup></control>
+                </setting>
+                <setting id="wetrakr_min_progress" type="integer" label="30113">
+                    <level>0</level>
+                    <default>80</default>
+                    <constraints><minimum>50</minimum><step>1</step><maximum>100</maximum></constraints>
+                    <control type="slider" format="integer"><popup>false</popup></control>
+                </setting>
+            </group>
+        </category>
+        <category id="rating" label="30202">
+            <group id="6" label="30215">
+                <setting id="rate_movie" type="boolean" label="30114">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="rate_episode" type="boolean" label="30115">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="rate_min_percent" type="integer" label="30116">
+                    <level>0</level>
+                    <default>80</default>
+                    <constraints><minimum>50</minimum><step>1</step><maximum>100</maximum></constraints>
+                    <control type="slider" format="integer"><popup>false</popup></control>
+                </setting>
+                <setting id="rate_default" type="integer" label="30117">
+                    <level>0</level>
+                    <default>6</default>
+                    <constraints><minimum>0</minimum><step>1</step><maximum>10</maximum></constraints>
+                    <control type="slider" format="integer"><popup>false</popup></control>
+                </setting>
+            </group>
+        </category>
+        <category id="syncing" label="30203">
+            <group id="7" label="30216">
+                <setting id="sync_from" type="string" label="30230" help="30235">
+                    <level>0</level>
+                    <default>mdblist</default>
+                    <constraints>
+                        <options>
+                            <option label="30232">kodi</option>
+                            <option label="30233">mdblist</option>
+                            <option label="30234">simkl</option>
+                        </options>
+                    </constraints>
+                    <control type="list" format="string"><heading>30230</heading></control>
+                </setting>
+                <setting id="sync_to" type="string" label="30231" help="30236">
+                    <level>0</level>
+                    <default>simkl</default>
+                    <constraints>
+                        <options>
+                            <option label="30232">kodi</option>
+                            <option label="30233">mdblist</option>
+                            <option label="30234">simkl</option>
+                        </options>
+                    </constraints>
+                    <control type="list" format="string"><heading>30231</heading></control>
+                </setting>
+                <setting id="sync_preview" type="action" label="30118" help="30134">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,sync_preview)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+                <setting id="sync_run" type="action" label="30119">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,sync_run)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+                <setting id="sync_reset" type="action" label="30120">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,sync_reset)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+            </group>
+        </category>
+        <category id="troubleshooting" label="30204">
+            <group id="9" label="30217">
+                <setting id="debug" type="boolean" label="30121" help="30135">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="view_log" type="action" label="30122">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,view_log)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+                <setting id="clear_log" type="action" label="30123">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,clear_log)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+                <setting id="export_log" type="action" label="30124">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,export_log)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+                <setting id="upload_log" type="action" label="30125">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,upload_log)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+            </group>
+            <group id="10" label="30218">
+                <setting id="clear_cache" type="action" label="30126">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,clear_cache)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+            </group>
+        </category>
+    </section>
+</settings>
