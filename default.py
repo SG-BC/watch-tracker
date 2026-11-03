@@ -100,6 +100,14 @@ def main():
         ignore_ui.manage_addons()
     elif action == 'sync_reset':
         sync_reset()
+    elif action == 'edit_recent':
+        from resources.lib import manual
+        manual.edit_recent()
+    elif action == 'watchlist_refresh':
+        from resources.lib import watchlist
+        ui.notify('Refreshing the watchlist...')
+        count = watchlist.refresh(force=True)
+        ui.notify('Watchlist updated ({} source{})'.format(count, '' if count == 1 else 's'))
 
 
 if __name__ == '__main__':

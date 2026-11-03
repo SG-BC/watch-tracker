@@ -1,6 +1,6 @@
-from . import mdblist, simkl, wetrakr
+from . import anilist, mdblist, simkl, wetrakr
 
-ALL = (mdblist.PROVIDER, simkl.PROVIDER, wetrakr.PROVIDER)       # a new service is added here
+ALL = (mdblist.PROVIDER, simkl.PROVIDER, wetrakr.PROVIDER, anilist.PROVIDER)       # a new service is added here
 
 
 def get(name):

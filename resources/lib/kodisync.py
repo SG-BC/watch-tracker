@@ -115,7 +115,7 @@ def to_service(ui, dry, name):
                 raise sync.Cancelled()
             ui.update(base, 'Sending to {}...'.format(dest.label))
             if payload:
-                sync.Pusher(write, sync.START_BATCH, totals, unmatched, dest.label).push(payload)
+                sync.Pusher(write, sync.batch_for(dest), totals, unmatched, dest.label).push(payload)
         state[key] = {'since': started}
         save_state(state)
     results = {'stats': stats, 'totals': totals, 'unmatched': unmatched, 'since': since}
@@ -203,42 +203,145 @@ def from_simkl(ui, dry=False):
     return results
 
 
-def simkl_to_mdblist(ui, dry=False):
-    mdb = providers.get('mdblist') if dry else _need('mdblist')
+def simkl_to_service(ui, dry, name):
+    dest = providers.get(name) if dry else _need(name)
     state = load_state()
-    read = _read_simkl(ui, state, 'simkl_to_mdblist')
+    key = 'simkl_to_' + name
+    read = _read_simkl(ui, state, key)
     if read is None:
         return {'unchanged': True}
     rows, activities, date_from = read
     stats, totals, unmatched = Counter(), Counter(), []
     history, ratings = kodimap.simkl_rows_to_neutral(rows, stats)
     if not dry:
-        for base, payload, write in ((50, history, mdb.add_history), (75, ratings, mdb.add_ratings)):
-            if ui.cancelled():
-                raise sync.Cancelled()
-            ui.update(base, 'Sending to MDBList...')
-            if payload:
-                sync.Pusher(write, sync.START_BATCH, totals, unmatched, mdb.label).push(payload)
-        state['simkl_to_mdblist'] = activities
+        _push(ui, dest, history, ratings, totals, unmatched, 50)
+        state[key] = activities
         save_state(state)
     results = {'stats': stats, 'totals': totals, 'unmatched': unmatched, 'first': not date_from}
-    log.debug('simkl to mdblist {} | {}'.format('preview' if dry else 'done', summary_simkl_to_mdblist(results, dry).replace('\n', ' | ')))
+    log.debug('simkl to {} {} | {}'.format(name, 'preview' if dry else 'done',
+                                          summary_to_service(results, dry, 'Simkl', dest.label).replace('\n', ' | ')))
     return results
 
 
-def summary_simkl_to_mdblist(results, dry=False):
+def simkl_to_mdblist(ui, dry=False):
+    return simkl_to_service(ui, dry, 'mdblist')
+
+
+def _push(ui, dest, history, ratings, totals, unmatched, base):
+    """Send neutral history, then ratings, to a writing service (batched, cancellable)."""
+    for at, payload, write in ((base, history, dest.add_history), (base + 25, ratings, dest.add_ratings)):
+        if ui.cancelled():
+            raise sync.Cancelled()
+        ui.update(at, 'Sending to {}...'.format(dest.label))
+        if payload:
+            sync.Pusher(write, sync.batch_for(dest), totals, unmatched, dest.label).push(payload)
+
+
+def summary_to_service(results, dry, src_label, dst_label):
     if results.get('unchanged'):
-        return 'Nothing has changed on Simkl since the last sync.'
+        return 'Nothing has changed on {} since the last sync.'.format(src_label)
     s, t = results['stats'], results['totals']
-    lines = ['{} to MDBList: {} movies, {} episodes, {} whole shows, {} ratings.'.format(
-        'Would send' if dry else 'Sent', s['movies'], s['episodes'], s['shows'], s['ratings'])]
+    lines = ['{} to {}: {} movies, {} episodes, {} whole shows, {} ratings.'.format(
+        'Would send' if dry else 'Sent', dst_label, s['movies'], s['episodes'], s['shows'], s['ratings'])]
     if s['unmatched']:
-        lines.append('{} Simkl items have no usable ids and were skipped.'.format(s['unmatched']))
+        lines.append('{} {} items have no usable ids and were skipped.'.format(s['unmatched'], src_label))
     if t['not_found']:
-        lines.append('{} items could not be matched on MDBList.'.format(t['not_found']))
+        names = results.get('unmatched') or []
+        lines.append('{} items could not be matched on {}{}.'.format(
+            t['not_found'], dst_label, ' (e.g. {})'.format(', '.join(str(n) for n in names[:5])) if names else ''))
     if t['failed']:
-        lines.append('{} items were refused by MDBList; see the debug log.'.format(t['failed']))
+        lines.append('{} items were refused by {}; see the debug log.'.format(t['failed'], dst_label))
     return '\n'.join(lines)
+
+
+def summary_simkl_to_mdblist(results, dry=False):
+    return summary_to_service(results, dry, 'Simkl', 'MDBList')
+
+
+# ------------------------------------------------------------------------------ MDBList -> WeTrakr / AniList
+def _counts(history, ratings):
+    return Counter(movies=len(history.get('movies') or []),
+                   episodes=sum(len(sn.get('episodes') or []) for sh in history.get('shows') or []
+                                for sn in sh.get('seasons') or []),
+                   shows=sum(1 for sh in history.get('shows') or [] if not sh.get('seasons')),
+                   ratings=sum(len(v) for v in ratings.values()))
+
+
+def mdblist_to_service(ui, dry, name):
+    dest = providers.get(name) if dry else _need(name)
+    results = sync.run(ui, dry=dry, dest=name)
+    history, ratings = results.pop('collected')
+    totals, unmatched = Counter(), []
+    if not dry:
+        _push(ui, dest, history, ratings, totals, unmatched, 85)
+    return {'stats': _counts(history, ratings), 'totals': totals, 'unmatched': unmatched}
+
+
+# ------------------------------------------------------------------------------ WeTrakr / AniList -> anywhere
+def _read_wetrakr(ui, state, key):
+    """-> (history, ratings, snapshot) or None when WeTrakr has nothing new since the last run."""
+    wt = _need('wetrakr')
+    ui.update(3, 'Asking WeTrakr what changed...')
+    stamp = wt.activity_stamp()
+    snapshot = state.get(key) or {}
+    if stamp and snapshot.get('all') == stamp:
+        return None
+    try:
+        ui.update(10, 'Reading the WeTrakr watch history...')
+        history = wt.read_history(snapshot.get('all'))
+        ui.update(35, 'Reading the WeTrakr ratings...')
+        ratings = wt.read_ratings(snapshot.get('all'))
+    except RuntimeError as e:
+        raise sync.SyncError('Could not read WeTrakr ({}). Try again.'.format(e))
+    return history, ratings, {'all': stamp}
+
+
+def _read_anilist(ui, state, key):
+    al = _need('anilist')
+    ui.update(5, 'Reading your AniList list...')
+    try:
+        history, ratings = al.read_all()
+    except RuntimeError as e:
+        raise sync.SyncError('Could not read AniList ({}). Try again.'.format(e))
+    return history, ratings, {}
+
+
+READERS = {'wetrakr': _read_wetrakr, 'anilist': _read_anilist}
+
+
+def from_service(ui, dry, src, dst):
+    """WeTrakr / AniList -> Kodi or another service (add-only)."""
+    state = load_state()
+    key = 'from_{}_to_{}'.format(src, dst)
+    read = READERS[src](ui, state, key)
+    if read is None:
+        return {'unchanged': True, 'src': src}
+    history, ratings, snapshot = read
+    totals, unmatched = Counter(), []
+    results = {'stats': _counts(history, ratings), 'totals': totals, 'unmatched': unmatched, 'src': src}
+    if dst == 'kodi':
+        ui.update(45, 'Reading the Kodi library...')
+        movies, shows, episodes = read_library()
+        stats = Counter()
+        updates = kodimap.simkl_to_kodi(kodimap.neutral_to_rows(history, ratings),
+                                        kodimap.KodiIndex(movies, shows, episodes), stats)
+        applied = 0 if dry else apply_to_kodi(ui, updates, stats)
+        results = {'stats': stats, 'updates': len(updates), 'applied': applied, 'src': src}
+    elif not dry:
+        _push(ui, _need(dst), history, ratings, totals, unmatched, 50)
+    if not dry:
+        state[key] = snapshot
+        save_state(state)
+    log.debug('{} to {} {}'.format(src, dst, 'preview' if dry else 'done'))
+    return results
+
+
+def summary_from_service(results, dry, src_label, dst_label):
+    if results.get('unchanged'):
+        return 'Nothing has changed on {} since the last sync.'.format(src_label)
+    if 'updates' in results:
+        return summary_from_simkl(results, dry).replace('Simkl items', src_label + ' items')
+    return summary_to_service(results, dry, src_label, dst_label)
 
 
 def summary_from_simkl(results, dry=False):

@@ -32,7 +32,30 @@ def fetch_username(name):
     return username or ''
 
 
+def login_with_token(name):
+    """AniList: open the authorize page, copy the token it shows, paste it here."""
+    label = providers.get(name).label
+    account = auth.get(name)
+    xbmcgui.Dialog().ok(label + ' login', 'On your phone or computer open:\n[B]{}[/B]\nlog in and approve. The page then '
+                                         'shows a long code: copy it and paste it on the next screen.'.format(account.authorize_url()))
+    token = (xbmcgui.Dialog().input(label + ' - paste the code') or '').strip()
+    if not token:
+        ui.notify('{} login cancelled'.format(label))
+        return
+    account.store_pasted_token(token)
+    username = fetch_username(name)
+    if not username:
+        account.logout()
+        xbmcgui.Dialog().ok(label + ' login', '{} did not accept that code. Please try again.'.format(label))
+        return
+    _set_enabled(name, True)
+    status.set_status(name, True)
+    ui.notify('{}: logged in'.format(label))
+
+
 def login(name):
+    if auth.ENDPOINTS[name].get('token_paste'):
+        return login_with_token(name)
     label = providers.get(name).label
     account = auth.get(name)
     try:

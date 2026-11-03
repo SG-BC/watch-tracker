@@ -210,3 +210,59 @@ msgstr ""
 msgctxt "#30240"
 msgid "Log in with the PIN code shown on screen, then approve it on your phone or computer."
 msgstr ""
+
+msgctxt "#30238"
+msgid "Date ratings with the watch date"
+msgstr ""
+
+msgctxt "#30239"
+msgid "A rating given right after watching is dated with the watch. Turn off to date it when you answer. Also used by the manual rating."
+msgstr ""
+
+msgctxt "#30241"
+msgid "AniList"
+msgstr ""
+
+msgctxt "#30244"
+msgid "Recent items"
+msgstr ""
+
+msgctxt "#30245"
+msgid "Edit recent items..."
+msgstr ""
+
+msgctxt "#30246"
+msgid "Also update the Kodi library"
+msgstr ""
+
+msgctxt "#30247"
+msgid "Opens the last movies, shows, seasons and episodes you played: mark them watched or unwatched, rate them or remove the rating. Changes go to the services you are logged in to."
+msgstr ""
+
+msgctxt "#30248"
+msgid "Watchlist widget"
+msgstr ""
+
+msgctxt "#30249"
+msgid "Show Simkl watchlist"
+msgstr ""
+
+msgctxt "#30250"
+msgid "Show MDBList watchlist"
+msgstr ""
+
+msgctxt "#30251"
+msgid "Show WeTrakr watchlist"
+msgstr ""
+
+msgctxt "#30252"
+msgid "Refresh the watchlist now"
+msgstr ""
+
+msgctxt "#30253"
+msgid "Add Watch Tracker as a video add-on widget in your skin to get Your Next Movies and Your Next Shows. Titles in your Kodi library play; the others only show their poster."
+msgstr ""
+
+msgctxt "#30255"
+msgid "Open the page shown on screen, approve, then paste the code AniList displays."
+msgstr ""

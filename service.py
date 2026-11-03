@@ -1,12 +1,14 @@
 import threading
+import time
 
 import xbmc
 
-from resources.lib import log, status
+from resources.lib import log, status, watchlist
 from resources.lib.player import PlayerMonitor
 
 TICK_SECONDS = 3         # local position tracking only; never touches the network
 CHECK_DELAY = 3.0        # let a burst of settings changes finish before checking the connections
+WATCHLIST_DELAY = 30.0   # first watchlist read after Kodi starts; then every watchlist.REFRESH_SECONDS
 
 
 class SettingsMonitor(xbmc.Monitor):
@@ -33,8 +35,12 @@ def main():
     startup_check.start()
     log.debug('service started')
 
+    next_watchlist = time.time() + WATCHLIST_DELAY
     while not monitor.waitForAbort(TICK_SECONDS):
         player.tick()
+        if time.time() >= next_watchlist:
+            next_watchlist = time.time() + watchlist.REFRESH_SECONDS
+            threading.Thread(target=watchlist.refresh, name='tracker-watchlist', daemon=True).start()
 
     player.shutdown()
 

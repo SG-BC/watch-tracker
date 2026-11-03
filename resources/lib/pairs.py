@@ -1,11 +1,11 @@
-"""Sync between any two of Kodi, MDBList and Simkl (the "From" and "To" lists in the settings).
+"""Sync between any two of Kodi, MDBList, Simkl, WeTrakr and AniList (the "From" and "To" lists in the settings).
 
 Every pair is one-way and add-only. A pair is a function in sync.py / kodisync.py; adding a service means
 adding its name to NODES and its pairs to RUNNERS (readers and writers talk Simkl-shaped payloads)."""
 from . import kodisync, sync
 
-NODES = ('kodi', 'mdblist', 'simkl')
-LABELS = {'kodi': 'Kodi', 'mdblist': 'MDBList', 'simkl': 'Simkl'}
+NODES = ('kodi', 'mdblist', 'simkl', 'wetrakr', 'anilist')
+LABELS = {'kodi': 'Kodi', 'mdblist': 'MDBList', 'simkl': 'Simkl', 'wetrakr': 'WeTrakr', 'anilist': 'AniList'}
 
 
 def _mdblist_simkl(ui, dry):
@@ -16,6 +16,18 @@ def _kodi_to(name):
     return lambda ui, dry: kodisync.summary_to(kodisync.to_service(ui, dry, name), dry, LABELS[name])
 
 
+def _simkl_to(name):
+    return lambda ui, dry: kodisync.summary_to_service(kodisync.simkl_to_service(ui, dry, name), dry, 'Simkl', LABELS[name])
+
+
+def _mdblist_to(name):
+    return lambda ui, dry: kodisync.summary_to_service(kodisync.mdblist_to_service(ui, dry, name), dry, 'MDBList', LABELS[name])
+
+
+def _from(src, dst):
+    return lambda ui, dry: kodisync.summary_from_service(kodisync.from_service(ui, dry, src, dst), dry, LABELS[src], LABELS[dst])
+
+
 RUNNERS = {
     ('mdblist', 'simkl'): _mdblist_simkl,
     ('mdblist', 'kodi'): lambda ui, dry: kodisync.summary_mdblist_to_kodi(kodisync.mdblist_to_kodi(ui, dry), dry),
@@ -23,6 +35,20 @@ RUNNERS = {
     ('kodi', 'mdblist'): _kodi_to('mdblist'),
     ('simkl', 'kodi'): lambda ui, dry: kodisync.summary_from_simkl(kodisync.from_simkl(ui, dry), dry),
     ('simkl', 'mdblist'): lambda ui, dry: kodisync.summary_simkl_to_mdblist(kodisync.simkl_to_mdblist(ui, dry), dry),
+    # WeTrakr and AniList: written to from Kodi, Simkl and MDBList; read from into everything that can take it
+    ('kodi', 'wetrakr'): _kodi_to('wetrakr'),
+    ('kodi', 'anilist'): _kodi_to('anilist'),
+    ('simkl', 'wetrakr'): _simkl_to('wetrakr'),
+    ('simkl', 'anilist'): _simkl_to('anilist'),
+    ('mdblist', 'wetrakr'): _mdblist_to('wetrakr'),
+    ('mdblist', 'anilist'): _mdblist_to('anilist'),
+    ('wetrakr', 'kodi'): _from('wetrakr', 'kodi'),
+    ('wetrakr', 'simkl'): _from('wetrakr', 'simkl'),
+    ('wetrakr', 'mdblist'): _from('wetrakr', 'mdblist'),
+    ('wetrakr', 'anilist'): _from('wetrakr', 'anilist'),
+    ('anilist', 'kodi'): _from('anilist', 'kodi'),
+    ('anilist', 'simkl'): _from('anilist', 'simkl'),
+    ('anilist', 'wetrakr'): _from('anilist', 'wetrakr'),       # AniList -> MDBList is not offered: MDBList has no anime ids
 }
 
 

@@ -80,6 +80,32 @@
                     <control type="button" format="action"><close>true</close></control>
                 </setting>
             </group>
+            <group id="12" label="30241">
+                <setting id="anilist_status" type="string" label="30100">
+                    <level>0</level>
+                    <default>Disconnected</default>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <dependencies><dependency type="enable"><condition on="property" name="InfoBool">System.AlwaysFalse</condition></dependency></dependencies>
+                    <control type="edit" format="string"><heading>30100</heading></control>
+                </setting>
+                <setting id="anilist_enabled" type="boolean" label="30102">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="anilist_login" type="action" label="30104" help="30255">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,login,anilist)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+                <setting id="anilist_logout" type="action" label="30105">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,logout,anilist)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+            </group>
         </category>
         <category id="general" label="30205">
             <group id="3" label="30219">
@@ -98,6 +124,42 @@
                 <setting id="ignore_addons" type="action" label="30129">
                     <level>0</level>
                     <data>RunScript(service.watch.tracker,ignore_addons)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+            </group>
+            <group id="13" label="30244">
+                <setting id="edit_recent" type="action" label="30245" help="30247">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,edit_recent)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+                <setting id="edit_update_kodi" type="boolean" label="30246">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+            </group>
+            <group id="14" label="30248">
+                <setting id="watchlist_simkl" type="boolean" label="30249" help="30253">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="watchlist_mdblist" type="boolean" label="30250">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="watchlist_wetrakr" type="boolean" label="30251">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="watchlist_refresh" type="action" label="30252">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,watchlist_refresh)</data>
                     <constraints><allowempty>true</allowempty></constraints>
                     <control type="button" format="action"><close>true</close></control>
                 </setting>
@@ -155,6 +217,11 @@
                     <constraints><minimum>0</minimum><step>1</step><maximum>10</maximum></constraints>
                     <control type="slider" format="integer"><popup>false</popup></control>
                 </setting>
+                <setting id="rating_date" type="boolean" label="30238" help="30239">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
             </group>
         </category>
         <category id="syncing" label="30203">
@@ -167,6 +234,8 @@
                             <option label="30232">kodi</option>
                             <option label="30233">mdblist</option>
                             <option label="30234">simkl</option>
+                            <option label="30212">wetrakr</option>
+                            <option label="30241">anilist</option>
                         </options>
                     </constraints>
                     <control type="list" format="string"><heading>30230</heading></control>
@@ -179,6 +248,8 @@
                             <option label="30232">kodi</option>
                             <option label="30233">mdblist</option>
                             <option label="30234">simkl</option>
+                            <option label="30212">wetrakr</option>
+                            <option label="30241">anilist</option>
                         </options>
                     </constraints>
                     <control type="list" format="string"><heading>30231</heading></control>

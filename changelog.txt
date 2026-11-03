@@ -1,3 +1,10 @@
+v1.6.0
+- New service: AniList (anime). Log in by pasting the code AniList shows (it has no PIN-code flow); tokens last a year. A watch sets your progress (first season only, matched by AniList/MAL id or an exact title and year), ratings use your AniList scoring system automatically. Off until you log in.
+- Syncing: WeTrakr and AniList are now in the From / To lists. Kodi, Simkl and MDBList can write to both; WeTrakr can be read into Kodi, Simkl, MDBList and AniList; AniList into Kodi, Simkl and WeTrakr. Add-only. AniList is paced (about one item every 2 seconds).
+- New: "Edit recent items..." (General). The last 5 movies, shows, seasons and episodes you played: mark watched (now, or a date and time you pick; for episodes this one only or everything up to it), mark unwatched (rating removed too; a show or season clears all its episodes), rate (movies and shows; episodes if episode ratings are on) or remove the rating. Sent to every service you are logged in to and, by default, the Kodi library.
+- New: watchlist widget. Add Watch Tracker as a video add-on widget for "Your Next Movies" / "Your Next Shows". Sources: Simkl, MDBList and WeTrakr watchlists (each can be switched off); the list is refreshed in the background and read from disk by the widget. Titles in your Kodi library play; the others show their poster only.
+- Ratings: "Date ratings with the watch date" is back (on by default); manual ratings follow it too.
+
 v1.5.0
 - New service: WeTrakr. PIN-code login, scrobbling (own "mark as watched at" value), episode and movie ratings, mark-watched fallback. Off until you log in. Not yet in the From/To sync lists.
 - Fix: the connection status row ("Connected as @username" / "Disconnected") was missing: Kodi rejected its control (format="string" is not valid on a button) and dropped the row. It is now a read-only text field.

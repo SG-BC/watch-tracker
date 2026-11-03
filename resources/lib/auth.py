@@ -8,6 +8,7 @@
   the lock.
 * Adding a service = one entry in services_config.SERVICES and one entry in ENDPOINTS below.
 """
+import base64
 import json
 import os
 import time
@@ -33,6 +34,13 @@ ENDPOINTS = {
         'refresh': '/oauth/token/refresh', 'revoke': None, 'scope': '', 'write_scope': None,
         'pin_page': 'https://wetrakr.com/activate', 'refresh_margin': 86400,
         'json': True, 'key_header': 'wetrakr-api-key', 'headers': {'wetrakr-api-version': '1'},
+    },
+    'anilist': {
+        # No device flow, no refresh token: the user opens the authorize page (redirect URL set to AniList's auth
+        # pin page), copies the token it shows and pastes it into Kodi. The token lasts one year.
+        'base': 'https://graphql.anilist.co', 'token_paste': True, 'revoke': None, 'scope': '', 'write_scope': None,
+        'authorize': 'https://anilist.co/api/v2/oauth/authorize?client_id={client_id}&response_type=token',
+        'refresh_margin': 0,
     },
 }
 
@@ -203,6 +211,22 @@ class Account:
         if fresh and fresh.get('access_token') != used_token:
             return fresh['access_token']
         return None
+
+    # ------------------------------------------------------------------ login with a pasted token (AniList)
+    def authorize_url(self):
+        return self.ep['authorize'].format(client_id=self.CLIENT_ID)
+
+    def store_pasted_token(self, token):
+        """Keep a token the user pasted; its expiry is read from the JWT (default: about a year)."""
+        token = (token or '').strip()
+        expires = time.time() + 360 * 86400
+        try:
+            part = token.split('.')[1]
+            payload = json.loads(base64.urlsafe_b64decode(part + '=' * (-len(part) % 4)))
+            expires = float(payload.get('exp') or expires)
+        except (IndexError, ValueError, TypeError):
+            pass
+        self._save({'access_token': token, 'refresh_token': None, 'scope': '', 'expires_at': expires, 'username': ''})
 
     # ------------------------------------------------------------------ login (device / PIN flow)
     def start_login(self):

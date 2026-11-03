@@ -1,15 +1,25 @@
-"""WeTrakr: scrobble start/stop, ratings (movies, shows, episodes) and the mark-watched fallback.
+"""WeTrakr: scrobble start/stop, ratings (movies, shows, episodes), the mark-watched fallback, sync writes and reads,
+manual edits (remove plays / ratings) and the planning list for the watchlist widget.
 
 WeTrakr resolves ids server-side and accepts title + year, so no search is needed. Auth: OAuth device flow
-(PIN code), the app key in the `wetrakr-api-key` header (see auth.ENDPOINTS). Sync pairs are not wired yet."""
+(PIN code), the app key in the `wetrakr-api-key` header (see auth.ENDPOINTS)."""
 import time
 
-from .. import cfg, log, net, status, ui
+from .. import cfg, log, net, status, syncmap, ui
 from .base import Provider, ref_key
+
+PAGE = 100
+MAX_PAGES = 500
 
 
 def _stamp(when):
     return time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(when))
+
+
+def _iso(value):
+    """Any ISO date from the neutral payloads -> WeTrakr's millisecond form (None when unusable)."""
+    ts = syncmap.normalize_ts(value)
+    return ts.replace('Z', '.000Z') if ts else None
 
 
 class WeTrakr(Provider):
@@ -57,27 +67,34 @@ class WeTrakr(Provider):
 
     # ------------------------------------------------------------------ item objects
     @staticmethod
-    def _ids(ref):
-        keys = ('imdb', 'tmdb') if ref['kind'] == 'movie' else ('imdb', 'tmdb', 'tvdb')
+    def _convert_ids(ids, kind):
+        keys = ('imdb', 'tmdb', 'anilist') if kind == 'movie' else ('imdb', 'tmdb', 'tvdb', 'anilist')
         out = {}
-        for k, v in (ref.get('ids') or {}).items():
+        for k, v in (ids or {}).items():
+            name = 'myanimelist' if k == 'mal' else k
             if k in keys and v not in (None, ''):
                 out[k] = int(v) if k != 'imdb' and str(v).isdigit() else v
+            elif name == 'myanimelist' and v:
+                out[name] = int(v) if str(v).isdigit() else v
         return out
 
-    def item(self, ref):
+    @classmethod
+    def _obj(cls, title, year, ids, kind, native=None):
         obj = {}
-        native = (ref.get('native') or {}).get(self.name)
         if native:
             obj['id'] = native
-        if ref.get('title'):
-            obj['title'] = ref['title']
-        if ref.get('year'):
-            obj['year'] = ref['year']
-        ids = self._ids(ref)
+        if title:
+            obj['title'] = title
+        if year:
+            obj['year'] = year
+        ids = cls._convert_ids(ids, kind)
         if ids:
             obj['ids'] = ids
         return obj
+
+    def item(self, ref):
+        return self._obj(ref.get('title'), ref.get('year'), ref.get('ids'), 'movie' if ref['kind'] == 'movie' else 'show',
+                         (ref.get('native') or {}).get(self.name))
 
     def accepts(self, ref):
         if ref_key(ref) in self._unmatched:
@@ -136,6 +153,192 @@ class WeTrakr(Provider):
             body = {'shows': [dict(item, seasons=[{'number': ref['season'], 'episodes': [
                 {'number': ref['episode'], 'rating': value}]}])]}
         return self._call('POST', '/sync/ratings', json_data=body)
+
+    # ------------------------------------------------------------------ sync / manual writes (neutral payloads in)
+    @staticmethod
+    def _answer(res):
+        """WeTrakr says notFound; the sync runner reads not_found."""
+        if res.ok and isinstance(res.body, dict) and res.body.get('notFound') is not None:
+            res.body['not_found'] = res.body['notFound']
+        return res
+
+    def _history_body(self, payload, remove=False):
+        def mark(stamp):
+            row = {'status': 'watched'}
+            if not remove:
+                row['allow_rewatch'] = False
+                if stamp:
+                    row['tracked_at'] = stamp
+            return row
+
+        body = {}
+        for it in payload.get('movies') or []:
+            obj = self._obj(it.get('title'), it.get('year'), it.get('ids'), 'movie')
+            if obj.get('id') or obj.get('ids') or (obj.get('title') and obj.get('year')):
+                body.setdefault('movies', []).append(dict(obj, **mark(_iso(it.get('watched_at')))))
+        for it in payload.get('shows') or []:
+            obj = self._obj(it.get('title'), it.get('year'), it.get('ids'), 'show')
+            if not (obj.get('id') or obj.get('ids') or (obj.get('title') and obj.get('year'))):
+                continue
+            seasons = []
+            for season in it.get('seasons') or []:
+                row = {'number': season.get('number')}
+                eps = [dict({'number': e.get('number')}, **mark(_iso(e.get('watched_at'))))
+                       for e in season.get('episodes') or []]
+                if eps:
+                    row['episodes'] = eps
+                else:
+                    row.update(mark(_iso(season.get('watched_at'))))
+                seasons.append(row)
+            if seasons:
+                body.setdefault('shows', []).append(dict(obj, status='watched', seasons=seasons))
+            else:
+                body.setdefault('shows', []).append(dict(obj, **mark(_iso(it.get('watched_at')))))
+        return body
+
+    def add_history(self, payload):
+        body = self._history_body(payload)
+        if not body:
+            return net.Result(status=200, body={})
+        return self._answer(self._call('POST', '/sync/tracking', json_data=body))
+
+    def remove_history(self, payload):
+        body = self._history_body(payload, remove=True)
+        if not body:
+            return net.Result(status=200, body={})
+        return self._answer(self._call('POST', '/sync/tracking/remove/all', json_data=body))
+
+    def _ratings_body(self, payload, with_value=True):
+        body = {}
+        for key, kind in (('movies', 'movie'), ('shows', 'show')):
+            for it in payload.get(key) or []:
+                obj = self._obj(it.get('title'), it.get('year'), it.get('ids'), kind)
+                if not (obj.get('id') or obj.get('ids') or (obj.get('title') and obj.get('year'))):
+                    continue
+                if with_value and it.get('rating'):
+                    obj['rating'] = it['rating']
+                seasons = []
+                for season in it.get('seasons') or []:
+                    eps = [dict({'number': e.get('number')}, **({'rating': e['rating']} if with_value and e.get('rating') else {}))
+                           for e in season.get('episodes') or []]
+                    if eps:
+                        seasons.append({'number': season.get('number'), 'episodes': eps})
+                if seasons:
+                    obj['seasons'] = seasons
+                body.setdefault(key, []).append(obj)
+        return body
+
+    def add_ratings(self, payload):
+        body = self._ratings_body(payload)
+        if not body:
+            return net.Result(status=200, body={})
+        return self._answer(self._call('POST', '/sync/ratings', json_data=body))
+
+    def remove_ratings(self, payload):
+        body = self._ratings_body(payload, with_value=False)
+        if not body:
+            return net.Result(status=200, body={})
+        return self._answer(self._call('POST', '/sync/ratings/remove', json_data=body))
+
+    # ------------------------------------------------------------------ sync reads (WeTrakr -> others)
+    def activity_stamp(self):
+        """/sync/last_activities `all`; None when unknown. Unchanged since the last run = nothing to read."""
+        res = self._call('GET', '/sync/last_activities')
+        if res.ok and isinstance(res.body, dict):
+            body = res.body.get('data') if isinstance(res.body.get('data'), dict) else res.body
+            return body.get('all')
+        return None
+
+    def _pages(self, endpoint, params=None):
+        """Yield the rows of a paged list. Raises RuntimeError on a refused page."""
+        for page in range(1, MAX_PAGES + 1):
+            res = self._call('GET', endpoint, params=dict(params or {}, page=page, limit=PAGE))
+            if not res.ok:
+                raise RuntimeError('WeTrakr answered {} for {}'.format(res.status, endpoint))
+            rows = res.raw if isinstance(res.raw, list) else (res.body.get('data') or res.body.get('results') or [])
+            rows = [r for r in rows if isinstance(r, dict)]
+            for row in rows:
+                yield row
+            if len(rows) < PAGE:
+                return
+
+    @staticmethod
+    def _neutral(obj, kind):
+        ids = {k: v for k, v in (obj.get('ids') or {}).items() if k in ('imdb', 'tmdb', 'tvdb', 'anilist') and v}
+        if (obj.get('ids') or {}).get('myanimelist'):
+            ids['mal'] = obj['ids']['myanimelist']
+        return syncmap.media({'title': obj.get('title'), 'year': obj.get('year'), 'ids': ids}, kind) or {}
+
+    def read_history(self, since=None):
+        """Every play, newest first -> a Simkl-shaped history payload (the latest play of each item)."""
+        params = {'from_date': since} if since else {}
+        movies, shows, seen = [], {}, set()
+        for row in self._pages('/sync/tracking/watched/history/movies', params):
+            item = self._neutral(row.get('movie') or {}, 'movie')
+            key = str(sorted((item.get('ids') or {}).items())) or str(item)
+            if not item or key in seen:
+                continue
+            seen.add(key)
+            when = syncmap.normalize_ts(row.get('watched_at'))
+            movies.append(dict(item, **({'watched_at': when} if when else {})))
+        for row in self._pages('/sync/tracking/watched/history/episodes', params):
+            ep = row.get('episode') or {}
+            item = self._neutral(ep.get('show') or {}, 'show')
+            if not item or ep.get('season_number') is None or ep.get('number') is None:
+                continue
+            when = syncmap.normalize_ts(row.get('watched_at'))
+            group = shows.setdefault(syncmap.show_key(item), {'item': item, 'seasons': {}})
+            season = group['seasons'].setdefault(ep['season_number'], {})
+            season.setdefault(ep['number'], when)         # newest first: the first row is the latest play
+        out = {}
+        if movies:
+            out['movies'] = movies
+        rows = []
+        for g in shows.values():
+            seasons = [{'number': s, 'episodes': [dict({'number': n}, **({'watched_at': w} if w else {}))
+                                                  for n, w in sorted(eps.items())]}
+                       for s, eps in sorted(g['seasons'].items())]
+            rows.append(dict(g['item'], seasons=seasons))
+        if rows:
+            out['shows'] = rows
+        return out
+
+    def read_ratings(self, since=None):
+        params = {'from_date': since} if since else {}
+        out = {}
+        for key, kind in (('movies', 'movie'), ('shows', 'show')):
+            rows = []
+            for row in self._pages('/sync/ratings/' + key, params):
+                mine = (row.get('interactions') or {}).get('user') or {}
+                if not mine.get('rating'):
+                    continue
+                item = self._neutral(row, kind)
+                if not item:
+                    continue
+                stamp = syncmap.normalize_ts(mine.get('rated_at'))
+                rows.append(dict(item, rating=syncmap.round_half_up(mine['rating']),
+                                 **({'rated_at': stamp} if stamp else {})))
+            if rows:
+                out[key] = rows
+        return out
+
+    # ------------------------------------------------------------------ watchlist (the "planning" list)
+    def watchlist(self):
+        out = []
+        try:
+            for key, kind in (('movies', 'movie'), ('shows', 'show')):
+                for row in self._pages('/sync/tracking/planning/' + key):
+                    media = row.get(kind) or row
+                    item = self._neutral(media, kind)
+                    poster = media.get('poster') or media.get('poster_path') or ''
+                    if isinstance(poster, str) and poster.startswith('/'):
+                        poster = 'https://image.tmdb.org/t/p/w342' + poster
+                    out.append({'kind': kind, 'title': media.get('title'), 'year': media.get('year'),
+                                'ids': item.get('ids') or {}, 'poster': poster if isinstance(poster, str) else ''})
+        except RuntimeError as e:
+            log.warning(str(e))
+            return None
+        return out
 
 
 PROVIDER = WeTrakr()

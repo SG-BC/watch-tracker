@@ -54,11 +54,16 @@ def save_state(state, dest='simkl'):
 
 
 def reset_state():
-    for dest in ('simkl', 'kodi'):
+    for dest in ('simkl', 'kodi', 'wetrakr', 'anilist'):
         try:
             os.remove(_state_file(dest))
         except OSError:
             pass
+
+
+def batch_for(provider):
+    """Events per sync call for a writing service (slow services ask for less)."""
+    return min(START_BATCH, getattr(provider, 'batch_size', START_BATCH))
 
 
 def utc_now():
@@ -191,7 +196,7 @@ class _Run:
                       self.sim.label)
 
     def push(self, pusher, payload):
-        if payload and (not self.dry or self.dest_name == 'kodi'):     # the Kodi preview still collects
+        if payload and (not self.dry or self.dest_name != 'simkl'):     # a collecting destination (Kodi, ...) still collects in the preview
             pusher.push(payload)
             self.state['batch'] = pusher.batch
 
@@ -310,7 +315,7 @@ def run(ui, dry=False, dest='simkl'):
     job.items(index)
     job.ratings()
     job.save()
-    if dest == 'kodi':
+    if dest != 'simkl':
         job.results['collected'] = (job.sim.history, job.sim.ratings)
     log.debug('{} summary | {}'.format('preview' if dry else 'sync', summary(job.results, dry, job.sim.label).replace('\n', ' | ')))
     return job.results

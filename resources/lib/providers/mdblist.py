@@ -155,6 +155,42 @@ class MDBList(Provider):
             return net.Result(status=200, body={})
         return self._request('POST', '/sync/ratings', json_data=body)
 
+    def _remove(self, endpoint, payload):
+        body = self._convert(payload)
+        if not body:
+            return net.Result(status=200, body={})
+        return self._request('POST', endpoint, json_data=body)
+
+    def remove_history(self, payload):
+        return self._remove('/sync/watched/remove', payload)
+
+    def remove_ratings(self, payload):
+        return self._remove('/sync/ratings/remove', payload)
+
+    # ------------------------------------------------------------------ watchlist
+    def watchlist(self):
+        out, cursor = [], None
+        for _ in range(20):
+            params = {'limit': 1000, 'append_to_response': 'poster'}
+            if cursor:
+                params['cursor'] = cursor
+            res = self._request('GET', '/watchlist/items', params=params)
+            if not res.ok:
+                return None
+            for key, kind in (('movies', 'movie'), ('shows', 'show')):
+                for row in res.body.get(key) or []:
+                    raw = dict(row.get('ids') or {})
+                    if row.get('imdb_id'):
+                        raw.setdefault('imdb', row['imdb_id'])
+                    ids = parsing.normalize_ids(raw, kind)
+                    out.append({'kind': kind, 'title': row.get('title'),
+                                'year': row.get('release_year') or row.get('year'), 'ids': ids,
+                                'poster': row.get('poster') if isinstance(row.get('poster'), str) else ''})
+            cursor = (res.body.get('pagination') or {}).get('next_cursor') or res.body.get('next_cursor')
+            if not cursor:
+                break
+        return out
+
     # ------------------------------------------------------------------ sync reads (MDBList -> others)
     def get_watched(self, cursor=None, since=None, limit=1000, plays=False):
         params = {'limit': limit}

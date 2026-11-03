@@ -14,6 +14,7 @@ except ImportError:        # imported as a top-level module by the unit tests
     import parsing
 
 SIMKL_KEYS = {'movie': ('imdb', 'tmdb'), 'show': ('imdb', 'tmdb', 'tvdb')}
+ANIME_KEYS = ('anilist', 'mal')
 
 
 def round_half_up(value):
@@ -36,6 +37,10 @@ def media(obj, kind):
         return None
     item = {}
     ids = {k: v for k, v in parsing.normalize_ids(obj.get('ids') or {}, kind).items() if k in SIMKL_KEYS[kind]}
+    for k in ANIME_KEYS:                                  # anime ids ride along for the services that use them
+        v = (obj.get('ids') or {}).get(k)
+        if v not in (None, '', 0, '0') and str(v).isdigit():
+            ids[k] = int(v)
     if ids:
         item['ids'] = ids
     if obj.get('title'):

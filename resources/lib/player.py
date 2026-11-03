@@ -14,7 +14,7 @@ import urllib.parse
 import xbmc
 import xbmcgui
 
-from . import cfg, ignore, journal, log, parsing, pending_ratings, providers, rating, redact
+from . import cfg, ignore, journal, log, parsing, pending_ratings, providers, rating, recent, redact
 from .providers.base import ref_key
 
 START_SETTLE_SECONDS = 1.0     # like script.trakt: let a resume seek happen before reading the position
@@ -547,6 +547,8 @@ class PlayerMonitor(xbmc.Player):
                 log.debug('{}: cannot identify this item with what is known -> skipped'.format(p.label))
 
     def _do_stop(self, session, progress):
+        if session.ref is not None:
+            recent.record(session.ref, session.stop_ts or time.time(), progress)      # for the manual editor
         if session.ref is None or not session.providers:
             return
         for name in session.providers:
@@ -586,7 +588,7 @@ class PlayerMonitor(xbmc.Player):
             with session.lock:
                 session.done.add(provider.name)
                 journal.done(session.id, provider.name)
-            if progress >= provider.watched_mark():
+            if progress >= provider.watched_mark() and cfg.get_bool('rating_date', True):
                 self._redate_rating(provider, session)
         elif progress >= provider.watched_mark():
             self._ensure_armed(session, progress)
@@ -651,6 +653,7 @@ class PlayerMonitor(xbmc.Player):
             name = rating.display_name(session.info, session.ref)
             value = rating.prompt(name, cfg.get_int('rate_default', 6))
             if value:
-                rating.submit(session.ref, value, name, targets, when=session.stop_ts)
+                rating.submit(session.ref, value, name, targets,
+                              when=session.stop_ts if cfg.get_bool('rating_date', True) else None)
         finally:
             self._rating_lock.release()

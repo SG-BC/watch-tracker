@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="service.watch.tracker" name="Watch Tracker" version="1.5.0" provider-name="Duck2k">
+<addon id="service.watch.tracker" name="Watch Tracker" version="1.6.0" provider-name="Duck2k">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
         <import addon="script.module.requests" version="2.22.0"/>
     </requires>
+    <extension point="xbmc.python.pluginsource" library="plugin.py">
+        <provides>video</provides>
+    </extension>
     <extension point="xbmc.service" library="service.py" start="login"/>
     <extension point="xbmc.python.script" library="default.py">
         <provides>executable</provides>
@@ -13,6 +16,6 @@
         <description lang="en_GB">Watch tracker for multiple services</description>
         <platform>all</platform>
         <license>GPL-3.0-or-later</license>
-        <news>v1.5.0 - WeTrakr (scrobbling and ratings), connection status shows again, better show matching, clearer sync and ignore labels</news>
+        <news>v1.6.0 - AniList, WeTrakr in the sync lists, edit recent items by hand, watchlist widget, rating-date option back</news>
     </extension>
 </addon>

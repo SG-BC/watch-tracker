@@ -130,7 +130,7 @@ class Simkl(Provider):
 
     # ------------------------------------------------------------------ ratings (movies only)
     def rating_supported(self, kind):
-        return kind == 'movie'          # Simkl rates movies and shows; there are no episode ratings
+        return kind in ('movie', 'show')    # Simkl has no episode ratings; the live prompt only asks for movies/episodes
 
     def rate(self, ref, value, when=None):
         extra = {'rated_at': _stamp(when)} if when else {}
@@ -170,6 +170,33 @@ class Simkl(Provider):
 
     def add_ratings(self, payload):
         return self._call('POST', '/sync/ratings', json_data=payload)
+
+    def remove_history(self, payload):
+        return self._call('POST', '/sync/history/remove', json_data=payload)
+
+    def remove_ratings(self, payload):
+        return self._call('POST', '/sync/ratings/remove', json_data=payload)
+
+    def watchlist(self):
+        """Plan to watch: movies, shows and anime. Asks /sync/activities first; unchanged -> None is NOT returned,
+        the caller keeps its copy through `watchlist_changed`."""
+        out = []
+        for type_, kind, key in (('movies', 'movie', 'movie'), ('shows', 'show', 'show'), ('anime', 'show', 'show')):
+            res = self.get_all_items(type_, 'plantowatch')
+            if not res.ok:
+                return None
+            for row in (res.body.get(type_) or []) if isinstance(res.body, dict) else []:
+                obj = row.get(key) or row.get('anime') or row.get('show') or {}
+                poster = obj.get('poster')
+                out.append({'kind': kind, 'title': obj.get('title'), 'year': obj.get('year'),
+                            'ids': {k: v for k, v in (obj.get('ids') or {}).items() if k in ('imdb', 'tmdb', 'tvdb')},
+                            'poster': 'https://simkl.in/posters/{}_m.webp'.format(poster) if poster else ''})
+        return out
+
+    def watchlist_stamp(self):
+        """Simkl's own 'something changed' stamp (activities.all); None when unknown."""
+        res = self.get_activities()
+        return res.body.get('all') if res.ok and isinstance(res.body, dict) else None
 
     def get_activities(self):
         return self._call('GET', '/sync/activities')

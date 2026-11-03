@@ -10,6 +10,7 @@ class Provider:
     label = ''
     searches_by_title = False       # can look up ids from title (+ year); used before anything else
     title_only_fallback = False     # can match by title alone when the item has no ids and no year
+    batch_size = 1000               # events per sync call (slow services use less, so a sync stays cancellable)
 
     # ------------------------------------------------------------------ account
     @property
@@ -106,6 +107,20 @@ class Provider:
 
     def add_ratings(self, payload):
         raise NotImplementedError
+
+    def remove_history(self, payload):
+        """Un-watch (every play of) the items in a neutral history payload. Used by the manual editor."""
+        raise NotImplementedError
+
+    def remove_ratings(self, payload):
+        """Remove the ratings of the items in a neutral payload (the rating value is ignored)."""
+        raise NotImplementedError
+
+    # ------------------------------------------------------------------ watchlist widget
+    def watchlist(self):
+        """-> list of {'kind': movie | show, 'title', 'year', 'ids', 'poster'} ("plan to watch"), or None when
+        the service could not be read. Called by the service from time to time, never by the widget itself."""
+        return None
 
 
 def ref_key(ref):
