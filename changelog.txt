@@ -1,3 +1,9 @@
+v1.6.2
+- Fix: Edit recent items > Mark as Watched > "This episode and all previous episodes" only marked the one episode when the show was not in the Kodi library (e.g. played from Plex). The episode list now comes from the Kodi library, else Simkl's catalog (no Simkl login needed when the Simkl id is known), else WeTrakr (when logged in). Specials and episodes not aired yet are left out. With no list at all, earlier seasons are sent whole (each service fills them in) plus episodes 1 to N of this season.
+- The confirmation now always says what will be marked, e.g. "5 episodes (S01E01-S02E03)" or "Season 1 (whole) + S02E01-E03 (no episode list found)".
+- Marking watched by hand now always counts as a new watch, also for episodes already watched: every service gets it, and Kodi raises the play count by one.
+- Recent items keep the services' own ids (the Simkl id from the scrobble answer, the WeTrakr id once looked up), so the editor needs no lookup.
+
 v1.6.1
 - Fix: syncing FROM WeTrakr was very slow (about 100 calls) and stopped with an error on the ratings ("float() argument must be ... not 'dict'"). It now uses WeTrakr's compact lists (up to 5,000 rows a call, walked with the cursor WeTrakr returns): a whole library is a handful of calls. Rows carry ids only, so a WeTrakr-to-AniList match relies on AniList/MAL ids when WeTrakr has them. The first rows of each list are written to the debug log to confirm the field names.
 

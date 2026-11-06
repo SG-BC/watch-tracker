@@ -89,12 +89,44 @@ def _scope(entry):
     return None if choice is None or choice < 0 else ('one', 'up_to')[choice]
 
 
-def _confirm_bulk(entry, scope, library):
-    pairs = manualmap.episode_pairs(entry, scope, manualmap.library_pairs(kodimap.KodiIndex(*library), entry))
-    if len(pairs) > 1 or entry['kind'] in ('show', 'season'):
-        return xbmcgui.Dialog().yesno('Mark as Watched', 'Mark {} episode(s) of {} as watched?'.format(
-            len(pairs) or 'all', manualmap.label(entry)))
-    return True
+LISTERS = ('simkl', 'wetrakr')         # episode lists when the show is not in the Kodi library, in this order
+
+
+def _lister_ok(p):
+    """Simkl's catalog needs no login (only finding its show id does); WeTrakr needs one."""
+    return p.name == 'simkl' or p.enabled()
+
+
+def episode_list(entry, library):
+    """Every (season, episode) of the entry's show: the Kodi library first, else the first service that can list
+    them (aired episodes, no specials). A show id a service looks up is kept in entry['native'].
+    -> (pairs, where) with where 'Kodi' | a service label | None (nothing found: pairs == [])."""
+    pairs = manualmap.library_pairs(kodimap.KodiIndex(*library), entry)
+    if pairs:
+        return pairs, 'Kodi'
+    ref = {'kind': 'show', 'ids': entry.get('ids') or {}, 'title': entry.get('title'), 'year': entry.get('year'),
+           'native': entry.setdefault('native', {})}
+    for name in LISTERS:
+        p = providers.get(name)
+        if p is None or not _lister_ok(p):
+            continue
+        try:
+            found = p.episode_list(ref)
+        except Exception as e:
+            log.error('{} episode list failed: {!r}'.format(p.label, e))
+            continue
+        if found:
+            log.debug('episode list from {}: {} episodes'.format(p.label, len(found)))
+            return found, p.label
+    log.debug('no episode list for {}'.format(manualmap.label(entry)))
+    return [], None
+
+
+def _confirm_bulk(entry, scope, pairs):
+    if entry['kind'] == 'episode' and scope == 'one':
+        return True
+    return xbmcgui.Dialog().yesno('Mark as Watched', 'Mark {} of {} as watched?'.format(
+        manualmap.scope_text(entry, scope, pairs), manualmap.label(entry)))
 
 
 def mark_watched(entry, library):
@@ -104,10 +136,13 @@ def mark_watched(entry, library):
     when = pick_time()
     if when is None:
         return
-    if not _confirm_bulk(entry, scope, library):
+    if scope == 'up_to':
+        pairs, _ = episode_list(entry, library)
+    else:
+        pairs = manualmap.library_pairs(kodimap.KodiIndex(*library), entry)
+    if not _confirm_bulk(entry, scope, pairs):
         return
     stamp = manualmap.iso(when)
-    pairs = manualmap.library_pairs(kodimap.KodiIndex(*library), entry)
     payload = manualmap.history_payload(entry, stamp, scope, pairs)
     done, failed = _send(_targets(), 'add_history', payload) if payload else ([], [])
     kodi = _apply_kodi(entry, 'watch', library, scope=scope, when=stamp)

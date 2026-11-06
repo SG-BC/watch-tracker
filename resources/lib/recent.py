@@ -1,7 +1,8 @@
 """The last few things played, for the manual editor (recent.json in the profile folder).
 
 Four lists (movies, shows, seasons, episodes), most recent first, MAX_PER_LIST each. Finished and unfinished plays
-both count. An episode play also refreshes its show and its season. Only small entries: title, year, ids, numbers."""
+both count. An episode play also refreshes its show and its season. Only small entries: title, year, ids, numbers,
+and `native`: the services' own ids of the movie / show when their answers carried one (e.g. {'simkl': 2142967})."""
 import json
 import os
 
@@ -45,6 +46,9 @@ def entries_for_ref(ref, ts, progress):
     """A played ref -> the entries it adds: movie; or episode + its season + its show."""
     base = {'title': ref.get('title'), 'year': ref.get('year'), 'ids': ref.get('ids') or {}, 'ts': ts,
             'progress': round(progress or 0)}
+    native = {k: v for k, v in (ref.get('native') or {}).items() if v}
+    if native:
+        base['native'] = native
     if ref['kind'] == 'movie':
         return [dict(base, kind='movie')]
     return [dict(base, kind='show'), dict(base, kind='season', season=ref['season']),

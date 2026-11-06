@@ -36,7 +36,7 @@ class Provider:
         raise NotImplementedError
 
     # ------------------------------------------------------------------ http with a Bearer token
-    def _call_authed(self, method, endpoint, params=None, json_data=None, _retry=True):
+    def _call_authed(self, method, endpoint, params=None, json_data=None, _retry=True, allow_redirects=True):
         token = self.account.access_token()
         if not token:
             ui.notify_once(self.name + '-expired', '{} login expired: log in again in the add-on settings'.format(self.label))
@@ -47,13 +47,14 @@ class Provider:
                    'Content-Type': 'application/json'}
         headers.update(self.account.extra_headers())
         self._before_call()
-        res = net.request(method, self.account.BASE + endpoint, params=query, json_data=json_data, headers=headers)
+        res = net.request(method, self.account.BASE + endpoint, params=query, json_data=json_data, headers=headers,
+                          allow_redirects=allow_redirects)
         log.debug('{} {} {} -> {}'.format(self.name, method, endpoint, net.summarize(res)))
         status.report(self.name, res)
         if res.status == 401 and _retry:
             newer = self.account.on_unauthorized(token)
             if newer:
-                return self._call_authed(method, endpoint, params, json_data, _retry=False)
+                return self._call_authed(method, endpoint, params, json_data, _retry=False, allow_redirects=allow_redirects)
             ui.notify_once(self.name + '-expired', '{} login expired: log in again in the add-on settings'.format(self.label))
         elif res.daily_limit:
             ui.notify_once(self.name + '-daily', '{} daily API limit reached'.format(self.label))
@@ -115,6 +116,12 @@ class Provider:
     def remove_ratings(self, payload):
         """Remove the ratings of the items in a neutral payload (the rating value is ignored)."""
         raise NotImplementedError
+
+    # ------------------------------------------------------------------ episode lists (manual "up to" marks)
+    def episode_list(self, ref):
+        """Every aired (season, episode) of the ref's show, specials left out, sorted; None when this service
+        cannot list them. May store the service's own show id in ref['native'] for the next time."""
+        return None
 
     # ------------------------------------------------------------------ watchlist widget
     def watchlist(self):

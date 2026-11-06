@@ -364,6 +364,56 @@ class WeTrakr(Provider):
                 out[key] = rows
         return out
 
+    # ------------------------------------------------------------------ episode lists (manual "up to" marks)
+    @staticmethod
+    def _data(res):
+        return res.body.get('data') if isinstance(res.body.get('data'), dict) else res.body
+
+    def _lookup_show(self, ref):
+        """WeTrakr id of the ref's show: GET /media/external/{source}/{id}?type=show, tmdb then imdb then tvdb."""
+        ids = ref.get('ids') or {}
+        for source in ('tmdb', 'imdb', 'tvdb'):
+            if not ids.get(source):
+                continue
+            res = self._call('GET', '/media/external/{}/{}'.format(source, ids[source]), params={'type': 'show'})
+            found = self._data(res).get('id') if res.ok else None
+            if str(found or '').isdigit():
+                return int(found)
+        return None
+
+    def episode_list(self, ref):
+        """GET /shows/{id}?append=seasons,episodes: the whole tree of the show in one call (docs: seasons carry
+        number, episodes number / air_date / air_datetime; season 0 = specials). Only episodes whose air date has
+        passed count: one with no date is not announced yet. {id} is the WeTrakr id (/media/external lookup)."""
+        wid = (ref.get('native') or {}).get(self.name) or self._lookup_show(ref)
+        if not wid:
+            return None
+        ref.setdefault('native', {})[self.name] = wid
+        res = self._call('GET', '/shows/{}'.format(wid), params={'append': 'seasons,episodes'})
+        if not res.ok:
+            return None
+        now, out, shown = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), set(), False
+        for season in self._data(res).get('seasons') or []:
+            if not isinstance(season, dict):
+                continue
+            for ep in season.get('episodes') or []:
+                if not isinstance(ep, dict):
+                    continue
+                if not shown:                       # the real shape, for the next debug log
+                    shown = True
+                    log.debug('sample wetrakr episode: {}'.format(json.dumps(ep)[:300]))
+                aired = syncmap.normalize_ts(ep.get('air_datetime')) or str(ep.get('air_date') or '')[:10]
+                if not aired or aired > now:            # no date yet = not announced; a date ahead = not aired
+                    continue
+                try:
+                    pair = (int(season.get('number', season.get('season_number'))),
+                            int(ep.get('number', ep.get('episode_number'))))
+                except (TypeError, ValueError):
+                    continue
+                if pair[0] > 0 and pair[1] > 0:
+                    out.add(pair)
+        return sorted(out) or None
+
     # ------------------------------------------------------------------ watchlist (the "planning" list)
     def watchlist(self):
         out = []

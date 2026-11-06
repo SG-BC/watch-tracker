@@ -33,10 +33,10 @@ class Result:
         return self.status == 429 and not self.daily_limit and (self.retry_after or 1) <= 10
 
 
-def request(method, url, params=None, json_data=None, data=None, headers=None, timeout=TIMEOUT):
+def request(method, url, params=None, json_data=None, data=None, headers=None, timeout=TIMEOUT, allow_redirects=True):
     try:
         r = requests.request(method, url, params=params, json=json_data, data=data,
-                             headers=headers, timeout=timeout)
+                             headers=headers, timeout=timeout, allow_redirects=allow_redirects)
     except requests.exceptions.RequestException:
         return Result(network_error=True)
     try:

@@ -3,10 +3,11 @@
 No search is needed: Simkl resolves ids server-side and accepts title + year. One call per user
 action, never on a timer. Writes are paced to 1 per second.
 """
+import re
 import threading
 import time
 
-from .. import cache, cfg, log, net, parsing, status, ui
+from .. import auth, cache, cfg, log, net, parsing, status, ui
 from .base import Provider, ref_key
 
 MIN_INTERVAL = 1.1          # Simkl allows 1 POST per second
@@ -110,7 +111,19 @@ class Simkl(Provider):
         elif res.unmatched:
             self._unmatched.add(ref_key(ref))
             log.warning('simkl could not identify this item; skipping it for this session')
+        if res.ok:
+            self._remember_id(ref, res.body)
         return res
+
+    def _remember_id(self, ref, body):
+        """Keep the Simkl id the scrobble answer carries (show / anime / movie ids.simkl) in ref['native'], so the
+        recent items (and the episode list of the manual editor) have it without a lookup."""
+        for key in ('show', 'anime', 'movie'):
+            obj = body.get(key) if isinstance(body, dict) else None
+            sid = (obj.get('ids') or {}).get('simkl') if isinstance(obj, dict) else None
+            if str(sid or '').isdigit():
+                ref.setdefault('native', {})[self.name] = int(sid)
+                return
 
     def start(self, ref, progress, position=None, duration=None):
         return self._scrobble('start', ref, progress)
@@ -163,6 +176,52 @@ class Simkl(Provider):
         cache.put(key, found)
         log.debug('simkl title search {} "{}" ({}) -> {}'.format(mediatype, title, year, found or 'no match'))
         return found
+
+    # ------------------------------------------------------------------ episode lists (catalog)
+    def _catalog(self, endpoint):
+        """Catalog reads (/tv/episodes, /anime/episodes) need no user token, even under AUTH V2: client_id,
+        app-name, app-version and a User-Agent only. They do not count against the quota."""
+        res = net.request('GET', self.account.BASE + endpoint, params=self.account.common_params(),
+                          headers={'User-Agent': auth.user_agent()})
+        rows = len(res.raw) if isinstance(res.raw, list) else 0
+        log.debug('{} GET {} -> {} rows={}'.format(self.name, endpoint.rsplit('/', 1)[0], net.summarize(res), rows))
+        return res
+
+    def lookup_id(self, ref):
+        """Simkl id of the ref's show from its imdb / tvdb / tmdb ids: GET /redirect, the Location header is read
+        and not followed. Needs a Simkl login (AUTH V2); None when unknown."""
+        ids = {k: v for k, v in (ref.get('ids') or {}).items() if k in ('imdb', 'tvdb', 'tmdb') and v}
+        if not ids or not self.logged_in():
+            return None
+        res = self._call_authed('GET', '/redirect', params=dict(ids, to='simkl', type='tv'), allow_redirects=False)
+        found = re.search(r'/(?:tv|anime)/(\d+)', res.headers.get('location') or '')
+        return int(found.group(1)) if found else None
+
+    @staticmethod
+    def _aired(rows, anime=False):
+        out = set()
+        for row in rows:
+            if not isinstance(row, dict) or row.get('type') == 'special' or row.get('aired') is False:
+                continue
+            try:
+                season, number = int(row.get('season', 1 if anime else None)), int(row.get('episode'))
+            except (TypeError, ValueError):
+                continue
+            if season > 0 and number > 0:
+                out.add((season, number))
+        return sorted(out)
+
+    def episode_list(self, ref):
+        sid = (ref.get('native') or {}).get(self.name) or self.lookup_id(ref)
+        if not sid:
+            return None
+        ref.setdefault('native', {})[self.name] = sid
+        for kind in ('tv', 'anime'):            # an unknown id answers 200 [] on the wrong catalog
+            res = self._catalog('/{}/episodes/{}'.format(kind, sid))
+            pairs = self._aired(res.raw, kind == 'anime') if res.ok and isinstance(res.raw, list) else []
+            if pairs:
+                return pairs
+        return None
 
     # ------------------------------------------------------------------ sync writes
     def add_history(self, payload):

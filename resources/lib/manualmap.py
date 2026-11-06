@@ -56,17 +56,48 @@ def _seasons(pairs, stamp, dated=True):
 
 
 def episode_pairs(entry, scope, library):
-    """(season, episode) pairs an action on the entry covers. `library` = every (season, episode) Kodi has for the show.
-    scope: 'one' | 'up_to' (episodes only). Specials (season 0) never count for "up to"."""
+    """(season, episode) pairs an action on the entry covers. `library` = every (season, episode) known for the show
+    (the Kodi library, or a service's episode list). scope: 'one' | 'up_to' (episodes only). Specials (season 0)
+    never count for "up to". With no list at all, "up to" covers episodes 1..N of this season (see whole_seasons)."""
     kind = entry['kind']
     if kind == 'episode':
         here = (entry['season'], entry['episode'])
         if scope == 'up_to':
-            return [p for p in library if p[0] > 0 and p <= here] or [here]
+            found = [p for p in library if p[0] > 0 and p <= here]
+            if found:
+                return found
+            return [(here[0], n) for n in range(1, here[1] + 1)] if here[0] > 0 else [here]
         return [here]
     if kind == 'season':
         return [p for p in library if p[0] == entry['season']]
     return [p for p in library if p[0] > 0] or list(library)          # a whole show
+
+
+def whole_seasons(entry, scope, library):
+    """Seasons sent whole (each service fills in their episodes from its own catalog): only for "up to" with no
+    episode list at all -> seasons 1 .. this one - 1."""
+    if entry['kind'] != 'episode' or scope != 'up_to' or library:
+        return []
+    return list(range(1, entry['season'])) if entry['season'] > 1 else []
+
+
+def scope_text(entry, scope, library):
+    """What a mark covers, for the confirmation: '5 episodes (S01E01-S02E03)' or
+    'Season 1 (whole) + S02E01-E03 (no episode list found)'."""
+    pairs = episode_pairs(entry, scope, library)
+    whole = whole_seasons(entry, scope, library)
+    if entry['kind'] == 'season' and not pairs:
+        return 'all episodes of season {}'.format(entry['season'])
+    if entry['kind'] == 'show' and not pairs:
+        return 'every episode'
+    if not pairs:
+        return '0 episodes'
+    first, last = pairs[0], pairs[-1]
+    if whole:
+        names = 'Season {} (whole)'.format(whole[0]) if len(whole) == 1 else 'Seasons {}-{} (whole)'.format(whole[0], whole[-1])
+        return '{} + S{:02d}E{:02d}-E{:02d} (no episode list found)'.format(names, first[0], first[1], last[1])
+    span = 'S{:02d}E{:02d}'.format(*first) if first == last else 'S{:02d}E{:02d}-S{:02d}E{:02d}'.format(first[0], first[1], last[0], last[1])
+    return '{} episode{} ({})'.format(len(pairs), '' if len(pairs) == 1 else 's', span)
 
 
 def history_payload(entry, stamp, scope, library, dated=True):
@@ -80,7 +111,8 @@ def history_payload(entry, stamp, scope, library, dated=True):
         return {'movies': [dict(base, **mark)]}
     pairs = episode_pairs(entry, scope, library)
     if pairs:
-        return {'shows': [dict(base, seasons=_seasons(pairs, stamp, dated))]}
+        whole = [dict({'number': s}, **mark) for s in whole_seasons(entry, scope, library)]
+        return {'shows': [dict(base, seasons=whole + _seasons(pairs, stamp, dated))]}
     if entry['kind'] == 'season':
         return {'shows': [dict(base, seasons=[{'number': entry['season']}])]}
     return {'shows': [dict(base, **mark)]}                              # no library episodes: the whole show
@@ -152,10 +184,8 @@ def kodi_updates(entry, action, index, scope='one', when=None, rating=None):
         if row is None:
             continue
         upd = {'episodeid': row['episodeid']}
-        if action == 'watch':
-            if (row.get('playcount') or 0) > 0 and (len(pairs) > 1 or entry['kind'] != 'episode'):
-                continue                                                # bulk marks only fill the gaps
-            upd.update(playcount=max(1, row.get('playcount') or 0), **({'lastplayed': local} if local else {}))
+        if action == 'watch':                       # a new watch, also for episodes already watched (one more play)
+            upd.update(playcount=(row.get('playcount') or 0) + 1, **({'lastplayed': local} if local else {}))
         else:
             upd.update(playcount=0, userrating=0)
         out.append(('VideoLibrary.SetEpisodeDetails', upd))
