@@ -305,9 +305,46 @@ def history_items_to_simkl(page, stats, ctx):
     return payload
 
 
-def ratings_page(page, stats, seen_movies=frozenset(), seen_shows=frozenset()):
+def _value(row):
+    """A rating row's value, half-up rounded, or None when unusable."""
+    if not isinstance(row, dict):
+        return None
+    raw = row.get('rating_precise', row.get('rating'))
+    try:
+        value = round_half_up(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        return None
+    return value if value is not None and 1 <= value <= 10 else None
+
+
+def _episode_ratings(rows, stats):
+    """MDBList episode rating rows -> show entries carrying seasons/episodes with a rating each."""
+    grouped = {}
+    for row in rows or []:
+        ep = row.get('episode') if isinstance(row, dict) else None
+        show = media((ep or {}).get('show'), 'show')
+        value = _value(row)
+        try:
+            season, number = int(ep.get('season')), int(ep.get('number'))
+        except (TypeError, ValueError, AttributeError):
+            season = number = None
+        if show is None or value is None or season is None or number is None:
+            stats['skipped'] += 1
+            continue
+        entry = {'number': number, 'rating': value}
+        rated_at = normalize_ts(row.get('rated_at'))
+        if rated_at:
+            entry['rated_at'] = rated_at
+        group = grouped.setdefault(show_key(show), dict(show, seasons={}))
+        group['seasons'].setdefault(season, {'number': season, 'episodes': []})['episodes'].append(entry)
+        stats['episodes'] += 1
+    return [dict(g, seasons=list(g['seasons'].values())) for g in grouped.values()]
+
+
+def ratings_page(page, stats, seen_movies=frozenset(), seen_shows=frozenset(), episodes=False):
     """One MDBList ratings page -> (ratings, history, lists) Simkl payloads. Movies and shows only
-    (Simkl has no season/episode ratings); 5.5 -> 6.
+    (Simkl has no season/episode ratings); 5.5 -> 6. episodes=True (the Kodi library takes episode
+    ratings): episode ratings ride along as show entries with seasons/episodes, each with its rating.
 
     Rating something Simkl does not know yet files it at that moment ("today"). So a rated item that
     is NOT in the watch history gets a back-dated entry first, using its rating date: a movie as a
@@ -318,14 +355,8 @@ def ratings_page(page, stats, seen_movies=frozenset(), seen_shows=frozenset()):
     for key, kind, field in (('movies', 'movie', 'movie'), ('shows', 'show', 'show')):
         for row in page.get(key) or []:
             item = media(row.get(field) if isinstance(row, dict) else None, kind)
-            value = None
-            if isinstance(row, dict):
-                raw = row.get('rating_precise', row.get('rating'))
-                try:
-                    value = round_half_up(raw) if raw is not None else None
-                except (TypeError, ValueError):
-                    value = None
-            if item is None or value is None or not 1 <= value <= 10:
+            value = _value(row)
+            if item is None or value is None:
                 stats['skipped'] += 1
                 continue
             entry = dict(item, rating=value)
@@ -340,7 +371,11 @@ def ratings_page(page, stats, seen_movies=frozenset(), seen_shows=frozenset()):
                     stats['backdated_shows'] += 1
             ratings[key].append(entry)
             stats[key] += 1
-    stats['ignored'] += len(page.get('seasons') or []) + len(page.get('episodes') or [])
+    if episodes:
+        ratings['shows'] += _episode_ratings(page.get('episodes'), stats)
+        stats['ignored'] += len(page.get('seasons') or [])
+    else:
+        stats['ignored'] += len(page.get('seasons') or []) + len(page.get('episodes') or [])
     return ({k: v for k, v in ratings.items() if v},
             {'movies': history} if history else {},
             {'shows': lists} if lists else {})

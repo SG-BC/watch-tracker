@@ -1,3 +1,9 @@
+v1.6.3
+- MDBList to Kodi now also fills in episode ratings, for episodes in your Kodi library that have no rating yet. A rating never marks an episode watched. Season ratings are still left out.
+- Fix: the MDBList part of a sync to Kodi, WeTrakr or AniList was described as if it went to Simkl ("filed on Simkl", "Simkl has none"). Those lines now name the real destination; the "filed on Simkl" line only appears for Simkl.
+- Every sync and preview, for every From/To pair, now writes its on-screen summary to the debug log (one line, "<From> to <To> summary | ..."). Before, syncs from WeTrakr/AniList and MDBList to Kodi/WeTrakr/AniList logged no counts.
+- Syncing to an empty Kodi library now says so up front: syncing to Kodi only updates movies and episodes that are already in the library.
+
 v1.6.2
 - Fix: Edit recent items > Mark as Watched > "This episode and all previous episodes" only marked the one episode when the show was not in the Kodi library (e.g. played from Plex). The episode list now comes from the Kodi library, else Simkl's catalog (no Simkl login needed when the Simkl id is known), else WeTrakr (when logged in). Specials and episodes not aired yet are left out. With no list at all, earlier seasons are sent whole (each service fills them in) plus episodes 1 to N of this season.
 - The confirmation now always says what will be marked, e.g. "5 episodes (S01E01-S02E03)" or "Season 1 (whole) + S02E01-E03 (no episode list found)".

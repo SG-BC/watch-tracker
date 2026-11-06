@@ -118,10 +118,7 @@ def to_service(ui, dry, name):
                 sync.Pusher(write, sync.batch_for(dest), totals, unmatched, dest.label).push(payload)
         state[key] = {'since': started}
         save_state(state)
-    results = {'stats': stats, 'totals': totals, 'unmatched': unmatched, 'since': since}
-    log.debug('kodi to {} {} | {}'.format(name, 'preview' if dry else 'done',
-                                         summary_to(results, dry, dest.label).replace('\n', ' | ')))
-    return results
+    return {'stats': stats, 'totals': totals, 'unmatched': unmatched, 'since': since}
 
 
 def to_simkl(ui, dry=False):
@@ -198,9 +195,8 @@ def from_simkl(ui, dry=False):
         applied = apply_to_kodi(ui, updates, stats)
         state['simkl_activities'] = activities
         save_state(state)
-    results = {'stats': stats, 'updates': len(updates), 'applied': applied, 'first': not date_from}
-    log.debug('simkl to kodi {} | {}'.format('preview' if dry else 'done', summary_from_simkl(results, dry).replace('\n', ' | ')))
-    return results
+    return {'stats': stats, 'updates': len(updates), 'applied': applied, 'first': not date_from,
+            'empty': not (movies or episodes)}
 
 
 def simkl_to_service(ui, dry, name):
@@ -217,10 +213,7 @@ def simkl_to_service(ui, dry, name):
         _push(ui, dest, history, ratings, totals, unmatched, 50)
         state[key] = activities
         save_state(state)
-    results = {'stats': stats, 'totals': totals, 'unmatched': unmatched, 'first': not date_from}
-    log.debug('simkl to {} {} | {}'.format(name, 'preview' if dry else 'done',
-                                          summary_to_service(results, dry, 'Simkl', dest.label).replace('\n', ' | ')))
-    return results
+    return {'stats': stats, 'totals': totals, 'unmatched': unmatched, 'first': not date_from}
 
 
 def simkl_to_mdblist(ui, dry=False):
@@ -326,13 +319,12 @@ def from_service(ui, dry, src, dst):
         updates = kodimap.simkl_to_kodi(kodimap.neutral_to_rows(history, ratings),
                                         kodimap.KodiIndex(movies, shows, episodes), stats)
         applied = 0 if dry else apply_to_kodi(ui, updates, stats)
-        results = {'stats': stats, 'updates': len(updates), 'applied': applied, 'src': src}
+        results = {'stats': stats, 'updates': len(updates), 'applied': applied, 'src': src, 'empty': not (movies or episodes)}
     elif not dry:
         _push(ui, _need(dst), history, ratings, totals, unmatched, 50)
     if not dry:
         state[key] = snapshot
         save_state(state)
-    log.debug('{} to {} {}'.format(src, dst, 'preview' if dry else 'done'))
     return results
 
 
@@ -348,9 +340,14 @@ def summary_from_simkl(results, dry=False):
     if results.get('unchanged'):
         return 'Nothing has changed on Simkl since the last sync.'
     s = results['stats']
-    lines = ['{} in Kodi: {} movies and {} episodes marked watched, {} ratings added.'.format(
-        'Would change' if dry else 'Changed', s['movies'], s['episodes'], s['ratings'])]
-    if s['not_in_kodi']:
+    lines = []
+    if results.get('empty'):
+        lines.append('Your Kodi library is empty. Syncing to Kodi only updates movies and episodes that are already in it.')
+    lines.append('{} in Kodi: {} movies and {} episodes marked watched, {} ratings added.'.format(
+        'Would change' if dry else 'Changed', s['movies'], s['episodes'], s['ratings']))
+    if s['episode_ratings']:
+        lines.append('{} episode ratings added.'.format(s['episode_ratings']))
+    if s['not_in_kodi'] and not results.get('empty'):
         lines.append('{} Simkl items are not in your Kodi library.'.format(s['not_in_kodi']))
     if s['failed']:
         lines.append('{} Kodi updates failed; see the debug log.'.format(s['failed']))
@@ -368,7 +365,7 @@ def mdblist_to_kodi(ui, dry=False):
     updates = kodimap.simkl_to_kodi(kodimap.neutral_to_rows(history, ratings),
                                     kodimap.KodiIndex(movies, shows, episodes), stats)
     applied = 0 if dry else apply_to_kodi(ui, updates, stats, base=90, span=10)
-    return {'sync': results, 'stats': stats, 'updates': len(updates), 'applied': applied}
+    return {'sync': results, 'stats': stats, 'updates': len(updates), 'applied': applied, 'empty': not (movies or episodes)}
 
 
 def summary_mdblist_to_kodi(results, dry=False):

@@ -2,7 +2,7 @@
 
 Every pair is one-way and add-only. A pair is a function in sync.py / kodisync.py; adding a service means
 adding its name to NODES and its pairs to RUNNERS (readers and writers talk Simkl-shaped payloads)."""
-from . import kodisync, sync
+from . import kodisync, log, sync
 
 NODES = ('kodi', 'mdblist', 'simkl', 'wetrakr', 'anilist')
 LABELS = {'kodi': 'Kodi', 'mdblist': 'MDBList', 'simkl': 'Simkl', 'wetrakr': 'WeTrakr', 'anilist': 'AniList'}
@@ -70,7 +70,9 @@ def run(src, dst, ui, dry=False):
     reason = check(src, dst)
     if reason:
         raise sync.SyncError(reason)
-    return RUNNERS[(src, dst)](ui, dry)
+    text = RUNNERS[(src, dst)](ui, dry)
+    log.debug('{} summary | {}'.format(title(src, dst, dry), text.replace('\n', ' | ')))
+    return text
 
 
 def reset_all():

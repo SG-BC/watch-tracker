@@ -280,7 +280,7 @@ class _Run:
             rows = sum(len(page.get(k) or []) for k in ('movies', 'shows', 'seasons', 'episodes'))
             fetched += rows
             ratings, backdated_history, backdated_lists = syncmap.ratings_page(
-                page, stats, ctx.seen_movies, ctx.seen_shows)
+                page, stats, ctx.seen_movies, ctx.seen_shows, episodes=self.dest_name == 'kodi')
             # file rated-only items with their rating date FIRST, then rate them
             if self.dest_name != 'simkl':          # filing rated-only items with their date is Simkl's quirk
                 backdated_history, backdated_lists = {}, {}
@@ -317,7 +317,9 @@ def run(ui, dry=False, dest='simkl'):
     job.save()
     if dest != 'simkl':
         job.results['collected'] = (job.sim.history, job.sim.ratings)
-    log.debug('{} summary | {}'.format('preview' if dry else 'sync', summary(job.results, dry, job.sim.label).replace('\n', ' | ')))
+    if dest != 'simkl':      # the pair's own summary is logged by pairs.run; this adds what MDBList held
+        log.debug('mdblist read {} | {}'.format('preview' if dry else 'sync',
+                                               summary(job.results, dry, dest_label(dest)).replace('\n', ' | ')))
     return job.results
 
 
@@ -327,6 +329,10 @@ def _dates_line(h):
         line += ' ({} to {} UTC)'.format(h['oldest'][:10], h['newest'][:10])
     line += '; {} have no date in MDBList and are imported as watched today.'.format(h['undated'])
     return line
+
+
+def dest_label(dest):
+    return 'Kodi' if dest == 'kodi' else providers.get(dest).label
 
 
 def summary(results, dry=False, label='Simkl'):
@@ -339,7 +345,9 @@ def summary(results, dry=False, label='Simkl'):
     if label != 'Simkl':
         lines[0] = lines[0].replace('Would send', 'Would read').replace('Sent', 'Read')
         lines[2] = lines[2].replace('Would send', 'Would read').replace('Sent', 'Read')
-    if r['backdated_movies'] or r['backdated_shows']:
+    if label == 'Kodi' and r['episodes']:
+        lines[2] += ' Episode ratings: {}.'.format(r['episodes'])
+    if label == 'Simkl' and (r['backdated_movies'] or r['backdated_shows']):
         lines.append('Rated but never watched: {} movies and {} shows are filed on Simkl with their rating date. They get the watch date once you watch them.'.format(
             r['backdated_movies'], r['backdated_shows']))
     if t['not_found']:
@@ -350,7 +358,11 @@ def summary(results, dry=False, label='Simkl'):
     if skipped:
         lines.append('{} rows were skipped (no usable ids, or no title and year).'.format(skipped))
     if r['ignored']:
-        lines.append('{} season/episode ratings were ignored (Simkl has none).'.format(r['ignored']))
+        if label == 'Kodi':
+            lines.append('{} season ratings were ignored (Kodi gets movie, show and episode ratings).'.format(r['ignored']))
+        else:
+            lines.append('{} season/episode ratings were ignored ({}).'.format(
+                r['ignored'], 'Simkl has none' if label == 'Simkl' else 'not synced to ' + label))
     if t['failed']:
         lines.append('{} items were refused by {}; see the debug log.'.format(t['failed'], label))
     if dry:

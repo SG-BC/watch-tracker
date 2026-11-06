@@ -193,6 +193,15 @@ def simkl_to_kodi(rows, index, stats):
             stats['not_in_kodi'] += 1
             continue
         library = index.episodes(record['tvshowid'])
+        if status == 'rated_episodes':                  # episode ratings only: never marks anything watched
+            for season in row.get('seasons') or []:
+                for ep in season.get('episodes') or []:
+                    e = library.get((season.get('number'), ep.get('number')))
+                    rating = _rating(ep.get('rating'))
+                    if e is not None and rating and not e.get('userrating'):
+                        updates.append(('VideoLibrary.SetEpisodeDetails', {'episodeid': e['episodeid'], 'userrating': rating}))
+                        stats['episode_ratings'] += 1
+            continue
         default = utc_to_kodi(row.get('last_watched_at'))
         targets = []                                    # (kodi episode row, local date)
         listed = row.get('listed_means_watched')        # rows built from a sync payload: every listed episode counts
@@ -236,7 +245,11 @@ def neutral_to_rows(history, ratings):
             rows.append(('show', 'watching', {'show': item, 'seasons': seasons, 'listed_means_watched': True}))
     for key, kind in (('movies', 'movie'), ('shows', 'show')):
         for item in ratings.get(key) or []:
-            rows.append((kind, 'rated', {kind: item, 'user_rating': item.get('rating')}))
+            if kind == 'show' and item.get('seasons'):           # episode ratings (Kodi keeps them per episode)
+                rows.append(('show', 'rated_episodes', {'show': {k: v for k, v in item.items() if k != 'seasons'},
+                                                        'seasons': item['seasons']}))
+            else:
+                rows.append((kind, 'rated', {kind: item, 'user_rating': item.get('rating')}))
     return rows
 
 
