@@ -106,6 +106,33 @@
                     <control type="button" format="action"><close>true</close></control>
                 </setting>
             </group>
+            <group id="15" label="30256">
+                <setting id="plex_status" type="string" label="30100">
+                    <level>0</level>
+                    <default>Disconnected</default>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <dependencies><dependency type="enable"><condition on="property" name="InfoBool">System.AlwaysFalse</condition></dependency></dependencies>
+                    <control type="edit" format="string"><heading>30100</heading></control>
+                </setting>
+                <setting id="plex_login" type="action" label="30104" help="30260">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,login,plex)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+                <setting id="plex_logout" type="action" label="30105">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,logout,plex)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+                <setting id="plex_choose" type="action" label="30257" help="30258">
+                    <level>0</level>
+                    <data>RunScript(service.watch.tracker,plex_choose)</data>
+                    <constraints><allowempty>true</allowempty></constraints>
+                    <control type="button" format="action"><close>true</close></control>
+                </setting>
+            </group>
         </category>
         <category id="general" label="30205">
             <group id="3" label="30219">
@@ -136,6 +163,11 @@
                     <control type="button" format="action"><close>true</close></control>
                 </setting>
                 <setting id="edit_update_kodi" type="boolean" label="30246">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="edit_update_plex" type="boolean" label="30259">
                     <level>0</level>
                     <default>true</default>
                     <control type="toggle"/>
@@ -236,6 +268,7 @@
                             <option label="30234">simkl</option>
                             <option label="30212">wetrakr</option>
                             <option label="30241">anilist</option>
+                            <option label="30256">plex</option>
                         </options>
                     </constraints>
                     <control type="list" format="string"><heading>30230</heading></control>
@@ -250,6 +283,7 @@
                             <option label="30234">simkl</option>
                             <option label="30212">wetrakr</option>
                             <option label="30241">anilist</option>
+                            <option label="30256">plex</option>
                         </options>
                     </constraints>
                     <control type="list" format="string"><heading>30231</heading></control>

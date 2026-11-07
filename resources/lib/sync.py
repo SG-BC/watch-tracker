@@ -54,7 +54,7 @@ def save_state(state, dest='simkl'):
 
 
 def reset_state():
-    for dest in ('simkl', 'kodi', 'wetrakr', 'anilist'):
+    for dest in ('simkl', 'kodi', 'wetrakr', 'anilist', 'plex'):
         try:
             os.remove(_state_file(dest))
         except OSError:
@@ -280,7 +280,7 @@ class _Run:
             rows = sum(len(page.get(k) or []) for k in ('movies', 'shows', 'seasons', 'episodes'))
             fetched += rows
             ratings, backdated_history, backdated_lists = syncmap.ratings_page(
-                page, stats, ctx.seen_movies, ctx.seen_shows, episodes=self.dest_name == 'kodi')
+                page, stats, ctx.seen_movies, ctx.seen_shows, episodes=self.dest_name in ('kodi', 'plex'))
             # file rated-only items with their rating date FIRST, then rate them
             if self.dest_name != 'simkl':          # filing rated-only items with their date is Simkl's quirk
                 backdated_history, backdated_lists = {}, {}
@@ -303,7 +303,8 @@ class _Run:
 
 
 def run(ui, dry=False, dest='simkl'):
-    """ui needs: update(percent, text) and cancelled(). dest: 'simkl' or 'kodi' (the Kodi library).
+    """ui needs: update(percent, text) and cancelled(). dest: 'simkl', or a collecting destination ('kodi', 'plex',
+    'wetrakr', 'anilist': what would be sent is returned in 'collected').
     dry=True (the preview): reads MDBList only -- nothing is written and nothing is saved.
     Returns {'history','ratings','totals'} Counters (+ 'collected' for Kodi)."""
     if not providers.get('mdblist').logged_in():
@@ -332,7 +333,7 @@ def _dates_line(h):
 
 
 def dest_label(dest):
-    return 'Kodi' if dest == 'kodi' else providers.get(dest).label
+    return {'kodi': 'Kodi', 'plex': 'Plex'}.get(dest) or providers.get(dest).label
 
 
 def summary(results, dry=False, label='Simkl'):
@@ -345,7 +346,7 @@ def summary(results, dry=False, label='Simkl'):
     if label != 'Simkl':
         lines[0] = lines[0].replace('Would send', 'Would read').replace('Sent', 'Read')
         lines[2] = lines[2].replace('Would send', 'Would read').replace('Sent', 'Read')
-    if label == 'Kodi' and r['episodes']:
+    if label in ('Kodi', 'Plex') and r['episodes']:
         lines[2] += ' Episode ratings: {}.'.format(r['episodes'])
     if label == 'Simkl' and (r['backdated_movies'] or r['backdated_shows']):
         lines.append('Rated but never watched: {} movies and {} shows are filed on Simkl with their rating date. They get the watch date once you watch them.'.format(
@@ -358,8 +359,8 @@ def summary(results, dry=False, label='Simkl'):
     if skipped:
         lines.append('{} rows were skipped (no usable ids, or no title and year).'.format(skipped))
     if r['ignored']:
-        if label == 'Kodi':
-            lines.append('{} season ratings were ignored (Kodi gets movie, show and episode ratings).'.format(r['ignored']))
+        if label in ('Kodi', 'Plex'):
+            lines.append('{} season ratings were ignored ({} gets movie, show and episode ratings).'.format(r['ignored'], label))
         else:
             lines.append('{} season/episode ratings were ignored ({}).'.format(
                 r['ignored'], 'Simkl has none' if label == 'Simkl' else 'not synced to ' + label))

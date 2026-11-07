@@ -62,3 +62,8 @@ def check_all():
             provider.check()
         except Exception as e:
             log.debug('status check of {} failed: {!r}'.format(provider.label, e))
+    try:
+        from . import plexapi                       # Plex is not a provider (it is never scrobbled to)
+        plexapi.check()
+    except Exception as e:
+        log.debug('status check of Plex failed: {!r}'.format(e))

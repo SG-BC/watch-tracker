@@ -42,6 +42,11 @@ ENDPOINTS = {
         'authorize': 'https://anilist.co/api/v2/oauth/authorize?client_id={client_id}&response_type=token',
         'refresh_margin': 0,
     },
+    'plex': {
+        # plex.tv PIN flow (legacy, long-lived token); the flow itself is in plexapi.py. Only storage is used here.
+        'base': 'https://plex.tv', 'plex_pin': True, 'revoke': None, 'scope': '', 'write_scope': None,
+        'refresh_margin': 0,
+    },
 }
 
 

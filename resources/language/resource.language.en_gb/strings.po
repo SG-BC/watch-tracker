@@ -266,3 +266,23 @@ msgstr ""
 msgctxt "#30255"
 msgid "Open the page shown on screen, approve, then paste the code AniList displays."
 msgstr ""
+
+msgctxt "#30256"
+msgid "Plex"
+msgstr ""
+
+msgctxt "#30257"
+msgid "Choose servers and libraries..."
+msgstr ""
+
+msgctxt "#30258"
+msgid "Nothing is synced or edited on Plex until you choose. Plex servers can be remote, relayed or shared, and each library is read separately: choose only the servers and libraries you need."
+msgstr ""
+
+msgctxt "#30259"
+msgid "Also update Plex (the chosen libraries)"
+msgstr ""
+
+msgctxt "#30260"
+msgid "Log in with the code shown on screen at plex.tv/link. Plex is never scrobbled to; it is used by the sync and by \"Edit recent items\"."
+msgstr ""

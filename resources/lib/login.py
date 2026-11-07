@@ -17,8 +17,16 @@ def _set_enabled(name, value):
         pass
 
 
+def _label(name):
+    provider = providers.get(name)
+    return provider.label if provider else 'Plex'
+
+
 def fetch_username(name):
     """Ask the service who is signed in and remember it for the status line. Returns the name or ''."""
+    if name == 'plex':
+        from . import plexapi
+        return plexapi.fetch_username()
     provider = providers.get(name)
     if provider is None:
         return ''
@@ -53,7 +61,49 @@ def login_with_token(name):
     ui.notify('{}: logged in'.format(label))
 
 
+def login_plex():
+    """plex.tv PIN: show the short code, the user enters it at plex.tv/link, we poll until it is claimed."""
+    from . import plexapi
+    try:
+        pin = plexapi.start_pin()
+    except auth.LoginError as e:
+        log.warning(str(e))
+        xbmcgui.Dialog().ok('Plex login', 'Could not start the login.\n\n{}'.format(e))
+        return
+    total = min(pin['expires_in'], POLL_LIMIT_SECONDS)
+    deadline = time.time() + total
+    message = ('On your phone or computer open:\n[B]{}[/B]\nand enter the code:\n[B]{}[/B]\n\n'
+               'Waiting for approval...').format(plexapi.LINK_PAGE, pin['code'])
+    dialog = xbmcgui.DialogProgress()
+    dialog.create('Plex login', message)
+    monitor = xbmc.Monitor()
+    result = 'timeout'
+    try:
+        while time.time() < deadline:
+            if monitor.waitForAbort(3) or dialog.iscanceled():
+                result = 'cancelled'
+                break
+            result = plexapi.poll_pin(pin)
+            if result != 'pending':
+                break
+            dialog.update(int(100 * (1 - (deadline - time.time()) / total)), message)
+        else:
+            result = 'timeout'
+    finally:
+        dialog.close()
+    if result == 'ok':
+        fetch_username('plex')
+        status.set_status('plex', True)
+        ui.notify('Plex: logged in. Now choose your servers and libraries.')
+    elif result == 'cancelled':
+        ui.notify('Plex login cancelled')
+    else:
+        xbmcgui.Dialog().ok('Plex login', 'The login did not complete ({}). Please try again.'.format(result))
+
+
 def login(name):
+    if name == 'plex':
+        return login_plex()
     if auth.ENDPOINTS[name].get('token_paste'):
         return login_with_token(name)
     label = providers.get(name).label
@@ -106,13 +156,14 @@ def login(name):
 
 
 def logout(name):
-    label = providers.get(name).label
+    label = _label(name)
     account = auth.get(name)
     if not account.is_logged_in():
         ui.notify('{}: not logged in'.format(label))
         return
     if xbmcgui.Dialog().yesno(label, 'Log out of {} on this device?'.format(label)):
         account.logout()
-        _set_enabled(name, False)
+        if name != 'plex':                             # Plex has no on/off switch: it is used when logged in
+            _set_enabled(name, False)
         status.set_status(name, False)
         ui.notify('{}: logged out'.format(label))

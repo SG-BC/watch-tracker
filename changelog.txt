@@ -1,3 +1,9 @@
+v1.7.0
+- New: Plex. Log in with the code shown on screen (plex.tv/link), then choose the servers and the movie/show libraries to use (Accounts > Plex > Choose servers and libraries). Nothing happens on Plex until you choose. Each server line shows owned/shared, local/remote/relay and its answer time.
+- Syncing: Plex is in the From/To lists, both ways with MDBList, Simkl and WeTrakr. To Plex: watched where unwatched (Plex keeps no chosen watch date, so it dates them today) and ratings where there is none, with their own date. From Plex: plays with their real dates from each server's history; the same item on several servers counts once. Every chosen server is read and written by itself, in pages; a server that does not answer is skipped and named in the summary.
+- Edit recent items also updates Plex (the chosen libraries; "Also update Plex" in General). Removing a rating does not reach Plex yet.
+- Plex is never scrobbled to while you watch.
+
 v1.6.3
 - MDBList to Kodi now also fills in episode ratings, for episodes in your Kodi library that have no rating yet. A rating never marks an episode watched. Season ratings are still left out.
 - Fix: the MDBList part of a sync to Kodi, WeTrakr or AniList was described as if it went to Simkl ("filed on Simkl", "Simkl has none"). Those lines now name the real destination; the "filed on Simkl" line only appears for Simkl.

@@ -7,7 +7,7 @@ import time
 
 import xbmcgui
 
-from . import cfg, kodimap, kodisync, log, manualmap, providers, rating, recent, ui
+from . import cfg, kodimap, kodisync, log, manualmap, plexapi, plexmap, providers, rating, recent, ui
 
 WATCH, UNWATCH, RATE, UNRATE = 'Mark as Watched', 'Mark as Unwatched', 'Rate...', 'Remove rating'
 
@@ -55,6 +55,87 @@ def _apply_kodi(entry, action, library, **kw):
         if 'error' not in kodisync._rpc(method, params):
             applied += 1
     return applied > 0
+
+
+# ------------------------------------------------------------------------------ Plex (the chosen libraries)
+def _plex_wanted():
+    return cfg.get_bool('edit_update_plex', True) and plexapi.ready() is None
+
+
+def _plex_find(server, libraries, entry):
+    """-> (record, episodes) on one server: the movie / show (Kodi-shaped row) found in the chosen libraries by a
+    title search checked against the ids, and for a show its episodes {(season, episode): row}."""
+    base = manualmap.item(entry)
+    if base is None:
+        return None, {}
+    kind = 'movie' if entry['kind'] == 'movie' else 'show'
+    lib = plexmap.Library(server.name)
+    for chosen in libraries:
+        if chosen.get('type') == kind:
+            rows = server.pages('/library/sections/{}/all'.format(chosen['key']),
+                                {'type': 1 if kind == 'movie' else 2, 'includeGuids': 1, 'title': entry.get('title') or ''})
+            (lib.add_movies if kind == 'movie' else lib.add_shows)(rows)
+    index = lib.index()
+    record = index.movie(base) if kind == 'movie' else index.show(base)
+    if record is None or kind == 'movie':
+        return record, {}
+    lib.add_episodes(server.pages('/library/metadata/{}/allLeaves'.format(record['tvshowid']), {'includeGuids': 1}))
+    return record, {(e['season'], e['episode']): e for e in lib.episodes}
+
+
+def _plex_calls(entry, action, record, episodes, scope, rating, when):
+    """-> [(Server method name, args)] for one server."""
+    if entry['kind'] == 'movie':
+        key = record['movieid']
+        return [{'watch': ('scrobble', (key,)), 'unwatch': ('unscrobble', (key,)),
+                 'rate': ('rate', (key, rating, when))}[action]]
+    if action == 'rate':
+        if entry['kind'] == 'show':
+            return [('rate', (record['tvshowid'], rating, when))]
+        row = episodes.get((entry['season'], entry['episode']))
+        return [('rate', (row['episodeid'], rating, when))] if row else []
+    if action == 'unwatch' and entry['kind'] == 'show':
+        return [('unscrobble', (record['tvshowid'],))]
+    pairs = manualmap.episode_pairs(entry, scope if action == 'watch' else 'one', sorted(episodes))
+    single = entry['kind'] == 'episode' and (scope == 'one' or action == 'unwatch')
+    calls = []
+    for pair in pairs:
+        row = episodes.get(pair)
+        if row is None:
+            continue
+        if action == 'watch' and (single or row['playcount'] == 0):    # "all previous": only what is unwatched there
+            calls.append(('scrobble', (row['episodeid'],)))
+        elif action == 'unwatch' and (single or row['playcount'] > 0):
+            calls.append(('unscrobble', (row['episodeid'],)))
+    return calls
+
+
+def _apply_plex(entry, action, scope='one', rating=None, when=None):
+    """Run the action on every chosen Plex library that has the item. -> (labels done, labels failed)."""
+    done, failed = [], []
+    if not _plex_wanted():
+        return done, failed
+    if action == 'unrate':
+        ui.notify('Plex: removing a rating is not supported yet')
+        return done, failed
+    targets, skipped = plexapi.connect_chosen()
+    failed += ['Plex ({})'.format(name) for name, _ in skipped]
+    for server, libraries in targets:
+        label = 'Plex ({})'.format(server.name)
+        try:
+            record, episodes = _plex_find(server, libraries, entry)
+            if record is None:
+                log.debug('plex {}: {} is not in the chosen libraries'.format(server.name, manualmap.label(entry)))
+                continue
+            calls = _plex_calls(entry, action, record, episodes, scope, rating, when)
+            results = [getattr(server, name)(*args) for name, args in calls]
+        except plexapi.ServerDown as e:
+            log.debug('plex edit: {}'.format(e))
+            failed.append(label)
+            continue
+        if results:
+            (done if all(r.ok for r in results) else failed).append(label)
+    return done, failed
 
 
 def pick_time():
@@ -146,7 +227,10 @@ def mark_watched(entry, library):
     payload = manualmap.history_payload(entry, stamp, scope, pairs)
     done, failed = _send(_targets(), 'add_history', payload) if payload else ([], [])
     kodi = _apply_kodi(entry, 'watch', library, scope=scope, when=stamp)
-    _report('Marked as watched', done, failed, kodi)
+    plex_done, plex_failed = _apply_plex(entry, 'watch', scope=scope)
+    _report('Marked as watched', done + plex_done, failed + plex_failed, kodi)
+    if plex_done and when < time.time() - 600:
+        ui.notify('Plex keeps no chosen date: marked as watched now')
     entry.update(ts=when, progress=100)
 
 
@@ -161,7 +245,8 @@ def mark_unwatched(entry, library):
     if rated:
         _send(_targets(lambda p: p.rating_supported(kind)), 'remove_ratings', rated)
     kodi = _apply_kodi(entry, 'unwatch', library, scope='one')
-    _report('Marked as unwatched (rating removed)', done, failed, kodi)
+    plex_done, plex_failed = _apply_plex(entry, 'unwatch')
+    _report('Marked as unwatched (rating removed)', done + plex_done, failed + plex_failed, kodi)
     entry.update(progress=0)
 
 
@@ -174,7 +259,10 @@ def rate(entry, library):
     when = entry.get('ts') if cfg.get_bool('rating_date', True) else None
     ok = rating.submit(ref, value, manualmap.label(entry), targets, when=when) if targets else False
     kodi = _apply_kodi(entry, 'rate', library, rating=value)
-    if not ok and not kodi:
+    plex_done, plex_failed = _apply_plex(entry, 'rate', rating=value, when=when)
+    if plex_failed:
+        ui.notify('Could not rate on {}'.format(', '.join(plex_failed)), error=True)
+    if not ok and not kodi and not plex_done:
         ui.notify('Could not save the rating', error=True)
 
 
@@ -183,6 +271,7 @@ def unrate(entry, library):
     payload = manualmap.rating_payload(entry)
     done, failed = _send(_targets(lambda p: p.rating_supported(ref['kind'])), 'remove_ratings', payload) if payload else ([], [])
     kodi = _apply_kodi(entry, 'unrate', library)
+    _apply_plex(entry, 'unrate')
     _report('Rating removed', done, failed, kodi)
 
 

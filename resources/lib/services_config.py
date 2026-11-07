@@ -4,5 +4,7 @@ SERVICES = {
     "mdblist": {"client_id": "cCdyomGAS8apcwCkxXtWSyyLbAKqsgMmskRA2lxV", "auth": "pin"},
     "wetrakr": {"client_id": "7f5aa3beee4a5d7f9226a5973f35606f", "auth": "pin"},
     "anilist": {"client_id": "55838", "auth": "pin"},
+    # Plex needs no registered client id: X-Plex-Client-Identifier is a UUID the add-on makes once per install
+    "plex":    {"product": "Watch Tracker", "auth": "pin"},
     # new services get added here
 }

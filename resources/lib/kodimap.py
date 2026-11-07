@@ -159,9 +159,15 @@ class KodiIndex:
         return self._episodes.get(tvshowid, {})
 
 
-def simkl_to_kodi(rows, index, stats):
+def simkl_to_kodi(rows, index, stats, dated=False):
     """rows: [(kind, status, simkl row)]. -> [(JSON-RPC method, params)] that ADD what Kodi lacks:
-    watched status + date, and a rating only where Kodi has none."""
+    watched status + date, and a rating only where Kodi has none. dated=True (Plex, which keeps rating dates):
+    rating updates also carry 'rated_at' (never for Kodi: JSON-RPC refuses unknown fields)."""
+    def rated(upd, when):
+        if dated and when:
+            upd['rated_at'] = when
+        return upd
+
     updates = []
     for kind, status, row in rows:
         if not isinstance(row, dict):
@@ -182,6 +188,7 @@ def simkl_to_kodi(rows, index, stats):
             rating = _rating(row.get('user_rating'))
             if rating and not record.get('userrating'):
                 upd['userrating'] = rating
+                rated(upd, row.get('user_rated_at'))
                 stats['ratings'] += 1
             if upd:
                 updates.append(('VideoLibrary.SetMovieDetails', dict(upd, movieid=record['movieid'])))
@@ -199,7 +206,8 @@ def simkl_to_kodi(rows, index, stats):
                     e = library.get((season.get('number'), ep.get('number')))
                     rating = _rating(ep.get('rating'))
                     if e is not None and rating and not e.get('userrating'):
-                        updates.append(('VideoLibrary.SetEpisodeDetails', {'episodeid': e['episodeid'], 'userrating': rating}))
+                        updates.append(('VideoLibrary.SetEpisodeDetails',
+                                        rated({'episodeid': e['episodeid'], 'userrating': rating}, ep.get('rated_at'))))
                         stats['episode_ratings'] += 1
             continue
         default = utc_to_kodi(row.get('last_watched_at'))
@@ -225,7 +233,8 @@ def simkl_to_kodi(rows, index, stats):
                 stats['episodes'] += 1
         rating = _rating(row.get('user_rating'))
         if rating and not record.get('userrating'):
-            updates.append(('VideoLibrary.SetTVShowDetails', {'tvshowid': record['tvshowid'], 'userrating': rating}))
+            updates.append(('VideoLibrary.SetTVShowDetails',
+                            rated({'tvshowid': record['tvshowid'], 'userrating': rating}, row.get('user_rated_at'))))
             stats['ratings'] += 1
     return updates
 
@@ -249,7 +258,7 @@ def neutral_to_rows(history, ratings):
                 rows.append(('show', 'rated_episodes', {'show': {k: v for k, v in item.items() if k != 'seasons'},
                                                         'seasons': item['seasons']}))
             else:
-                rows.append((kind, 'rated', {kind: item, 'user_rating': item.get('rating')}))
+                rows.append((kind, 'rated', {kind: item, 'user_rating': item.get('rating'), 'user_rated_at': item.get('rated_at')}))
     return rows
 
 

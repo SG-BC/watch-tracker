@@ -23,6 +23,11 @@ def _run_sync(dry, confirm=True):
         xbmcgui.Dialog().ok('Sync', reason)
         return False
     title = pairs.title(src, dst, dry)
+    if 'plex' in (src, dst):
+        from resources.lib import plexapi
+        if not plexapi.warned():                       # once, before the first Plex sync
+            xbmcgui.Dialog().ok('Plex', plexapi.WARNING)
+            plexapi.set_warned()
     if not dry and confirm and not xbmcgui.Dialog().yesno(
             title, 'Copy watch history (with dates) and ratings from {} to {}?\n\nThis only adds; nothing is '
                    'deleted or overwritten. It can be cancelled and resumed.'.format(pairs.LABELS[src], pairs.LABELS[dst])):
@@ -100,6 +105,9 @@ def main():
         ignore_ui.manage_addons()
     elif action == 'sync_reset':
         sync_reset()
+    elif action == 'plex_choose':
+        from resources.lib import plex_ui
+        plex_ui.choose()
     elif action == 'edit_recent':
         from resources.lib import manual
         manual.edit_recent()
